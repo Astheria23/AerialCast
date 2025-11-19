@@ -66,3 +66,5 @@ class MaintenanceLog(db.Model):
     
     drone: Mapped["Drone"] = relationship(back_populates="maintenance_logs")
     serviced_by: Mapped[Optional["User"]] = relationship(back_populates="maintenance_logs")
+
+    
