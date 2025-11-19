@@ -1,0 +1,36 @@
+# Environments
+env/
+venv/
+ENV/
+.env/
+.venv/
+env.bak/
+venv.bak/
+
+# Flask instance folder
+instance/
+.webassets-cache
+
+# Caches
+.pytest_cache/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local settings
+local_settings.py
+
+# Database files
+*.sqlite3
+*.db
+
+# Secrets
+.env
+.env.*
+secrets.yml
+
+# IDE
+.idea/
+.vscode/
+ 
