@@ -36,6 +36,15 @@ class User(db.Model):
         back_populates="serviced_by"
     )
 
+    def to_dict(self):
+        return {
+            "user_id": str(self.user_id),
+            "email": self.email,
+            "full_name": self.full_name,
+            "role": self.role.value,
+            "created_at": self.created_at.isoformat(),
+        }
+
 
 class Drone(db.Model):
     __tablename__ = "drones"
