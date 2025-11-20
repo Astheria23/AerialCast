@@ -1,13 +1,23 @@
 from flask import Flask
+from .config import Config
+from .extensions import db, migrate, jwt
+from .models import master # Import models to be detected by Flask-Migrate
 
-app = Flask(__name__)
+def create_app(config_class=Config):
 
-@app.route('/')
-def hello_world():
-    return 'Hello, World!'
+    app = Flask(__name__)
+    app.config.from_object(config_class)
 
-if __name__ == '__main__':
-    app.run(debug=True)
+    db.init_app(app)
+    migrate.init_app(app, db)
+    jwt.init_app(app)
+
+    @app.route('/test')
+    def test_page():
+        return '<h1>Server Running</h1>'
+
+    return app
+    
 
 
 
