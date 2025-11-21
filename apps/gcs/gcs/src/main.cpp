@@ -335,9 +335,7 @@ void loop()
   // MQTT connection loop
   if (!client.connected())
   {
-
     reconnectMQTT();
-    
   }
   client.loop();
   ws.cleanupClients();
