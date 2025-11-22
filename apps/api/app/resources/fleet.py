@@ -13,6 +13,7 @@ class DroneList(MethodView):
     def get(self):
         return FleetService.get_all_drones()
 
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     @blp.arguments(DroneSchema)
     @blp.response(201, DroneSchema)
@@ -30,14 +31,16 @@ class DroneDetail (MethodView):
     def get(self, drone_id):
         return FleetService.get_drone_by_id(drone_id)
     
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     @blp.arguments(DroneSchema(partial=True))
     @blp.response(200, DroneSchema)
-
     def put (self, drone_data, drone_id):
         return FleetService.update_drone(drone_id, drone_data)
     
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
+    @blp.response(204)
     def delete(self, drone_id):
         return FleetService.delete_drone(drone_id)
     

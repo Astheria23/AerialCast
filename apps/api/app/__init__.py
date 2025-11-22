@@ -14,6 +14,18 @@ def create_app():
     app.config["OPENAPI_SWAGGER_UI_PATH"] = "/docs" 
     app.config["OPENAPI_SWAGGER_UI_URL"] = "https://cdn.jsdelivr.net/npm/swagger-ui-dist/" 
 
+    app.config["API_SPEC_OPTIONS"] = {
+        "components": {
+            "securitySchemes": {
+                "BearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT"
+                }
+            }
+        }
+    }
+
     db.init_app(app)
     migrate.init_app(app,db)
     jwt.init_app(app)

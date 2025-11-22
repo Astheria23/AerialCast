@@ -6,7 +6,7 @@ class FleetService:
 
     @staticmethod
     def create_drone(data):
-        if Drone.query.filter_by(lora_id=data['lora_ida']).first():
+        if Drone.query.filter_by(lora_id=data['lora_id']).first():
             return {"error": "LoRa ID already registered"}, 409
         
         new_drone = Drone(**data)
