@@ -23,8 +23,12 @@ def create_app():
     from . import models
 
     from .resources.auth import blp as AuthBlueprint
-    api.register_blueprint(AuthBlueprint)
+    from .resources.fleet import blp as FleetBlueprint
 
+
+    api.register_blueprint(AuthBlueprint)
+    api.register_blueprint(FleetBlueprint)
+    
     return app
 
     
