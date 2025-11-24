@@ -3,7 +3,7 @@ from datetime import datetime
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime, Float, SmallInteger, Enum, Text
+from sqlalchemy import String, ForeignKey, DateTime, Float, SmallInteger, Enum, Text, UniqueConstraint
 from typing import List, Optional, TYPE_CHECKING
 from .enums import MissionStatus
 from .master import Drone
@@ -46,6 +46,9 @@ class Mission(db.Model):
 
 class MissionWaypoint(db.Model):
     __tablename__ = 'mission_waypoints'
+    __table_args__ = (
+        UniqueConstraint('mission_id', 'order', name='uq_mission_waypoint_order_per_mission'),
+    )
     
     waypoint_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     mission_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("missions.mission_id"))

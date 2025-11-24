@@ -1,7 +1,7 @@
 from flask.views import MethodView
 from flask_smorest import Blueprint, abort
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from ..schemas import MissionSchema
+from ..schemas import MissionSchema, MissionUpdateSchema
 from ..services.mission_service import MissionService
 
 blp = Blueprint("Missions", "missions", description="Mission Planning", url_prefix="/api/missions")
@@ -36,4 +36,25 @@ class MissionDetail(MethodView):
     @blp.response(200, MissionSchema)
     def get(self, mission_id):
         return MissionService.get_mission_by_id(mission_id)
+
+    @blp.doc(security=[{"BearerAuth": []}])
+    @jwt_required()
+    @blp.arguments(MissionUpdateSchema(partial=True))
+    @blp.response(200, MissionSchema)
+    def put(self, update_data, mission_id):
+        result, status = MissionService.update_mission(mission_id, update_data)
+        if status != 200:
+            error = result.get("error") if isinstance(result, dict) else str(result)
+            abort(status, message=error)
+        return result
+
+    @blp.doc(security=[{"BearerAuth": []}])
+    @jwt_required()
+    @blp.response(200)
+    def delete(self, mission_id):
+        result, status = MissionService.delete_mission(mission_id)
+        if status != 200:
+            error = result.get("error") if isinstance(result, dict) else str(result)
+            abort(status, message=error)
+        return result
     

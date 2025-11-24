@@ -36,8 +36,6 @@ def create_app():
 
     api = Api(app)
 
-    from . import models  
-
     api.register_blueprint(AuthBlueprint)
     api.register_blueprint(FleetBlueprint)
     api.register_blueprint(MissionBlueprint)    
