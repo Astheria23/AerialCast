@@ -30,6 +30,17 @@ class FlightSession(db.Model):
     telemetry_logs: Mapped[List["TelemetryData"]] = relationship(back_populates="session", lazy="dynamic")
     alerts: Mapped[List["Alert"]] = relationship(back_populates="session", lazy="dynamic")
 
+    def to_dict(self):
+        return {
+            "session_id": str(self.session_id),
+            "mission_id": str(self.mission_id) if self.mission_id else None,
+            "drone_id": str(self.drone_id),
+            "pilot_id": str(self.pilot_id),
+            "start_time": self.start_time.isoformat(),
+            "end_time": self.end_time.isoformat() if self.end_time else None,
+            "status": self.status.value,
+        }
+
 class TelemetryData(db.Model):
     __tablename__ = 'telemetry_data'
     
@@ -44,6 +55,17 @@ class TelemetryData(db.Model):
     
     session: Mapped["FlightSession"] = relationship(back_populates="telemetry_logs")
 
+    def to_dict(self):
+        return {
+            "time": self.time.isoformat(),
+            "session_id": str(self.session_id),
+            "latitude": self.latitude,
+            "longitude": self.longitude,
+            "altitude": self.altitude,
+            "battery_voltage": self.battery_voltage,
+            "rssi": self.rssi,
+        }
+
 class Alert(db.Model):
     __tablename__ = 'alerts'
     
@@ -54,6 +76,15 @@ class Alert(db.Model):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     
     session: Mapped[Optional["FlightSession"]] = relationship(back_populates="alerts")
+
+    def to_dict(self):
+        return {
+            "alert_id": str(self.alert_id),
+            "session_id": str(self.session_id) if self.session_id else None,
+            "alert_type": self.alert_type.value,
+            "message": self.message,
+            "timestamp": self.timestamp.isoformat(),
+        }
 
 class MaintenanceLog(db.Model):
     __tablename__ = 'maintenance_logs'
@@ -67,4 +98,12 @@ class MaintenanceLog(db.Model):
     drone: Mapped["Drone"] = relationship(back_populates="maintenance_logs")
     serviced_by: Mapped[Optional["User"]] = relationship(back_populates="maintenance_logs")
 
-    
+    def to_dict(self):
+        return {
+            "log_id": str(self.log_id),
+            "drone_id": str(self.drone_id),
+            "serviced_by_user_id": str(self.serviced_by_user_id) if self.serviced_by_user_id else None,
+            "log_date": self.log_date.isoformat(),
+            "notes": self.notes,
+        }
+
