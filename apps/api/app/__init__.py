@@ -1,12 +1,14 @@
 from flask import Flask
 from flask_smorest import Api
 from .config import Config
-from .extensions import db,migrate,jwt
+from .extensions import db,migrate,jwt,cors
 
 def create_app():
     app = Flask(__name__)
-    app.config.from_object(Config)
+    
+    cors.init_app(app)
 
+    app.config.from_object(Config)
     app.config["API_TITLE"] = "AerialCast API"
     app.config["API_VERSION"] = "v1"
     app.config["OPENAPI_VERSION"] = "3.0.3"
