@@ -24,4 +24,10 @@ export const authService = {
     window.location.href = '/login';
   },
 
+  isLoggedIn: () => {
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('token');
+    }
+    return false;
+  },
 };
