@@ -1,5 +1,36 @@
 from marshmallow import Schema,fields,validate
 from .models.enums import DroneStatus
+from .models.enums import MissionStatus, SessionStatus
+
+class MissionWaywpointSchema(Schema):
+    waypoint_id = fields.UUID(dump_only=True)
+    latitude = fields.Float(required=True)
+    longitude = fields.Float(required=True)
+    altitude = fields.Float(load_default=15.0) 
+    order = fields.Integer(required=True)
+
+class MissionSchema(Schema):
+    mission_id = fields.UUID(dump_only=True)
+    mission_name = fields.String(required=True)
+    status = fields.String(validate=validate.OneOf([e.name for e in MissionStatus]), dump_only=True)
+    notes = fields.String()
+
+    drone_id = fields.UUID(required=True)
+
+    created_by_user_id =   fields.UUID(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+
+    waypoints = fields.List(fields.Nested(MissionWaywpointSchema),required=True)
+
+class FlightSessionSchema(Schema):
+    session_id = fields.UUID(dump_only=True)
+    drone_id = fields.UUID()
+    mission_id = fields.UUID()
+    pilot_id = fields.UUID()
+
+    status = fields.String()
+    started_at = fields.DateTime()
+    ended_at = fields.DateTime()
 
 class UserRegisterSchema(Schema):
     full_name = fields.String(required=True, validate=validate.Length(min=3))
