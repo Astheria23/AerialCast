@@ -7,45 +7,30 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
+import { useRouter } from "next/navigation";
+import { authService } from "@/services/auth.service";
 
 export function LoginForm() {
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState("")
+  const router = useRouter();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    setError("")
-    setIsLoading(true)
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-    // Change this using Python Backend Endpoint
     try {
-      const response = await fetch("/api/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.message || "Login failed")
-        return
-      }
-
-      // Success - redirect or store token
-      console.log("Login successful:", data)
-      // TODO: Handle successful login (store token, redirect, etc.)
-    } catch (err) {
-      setError("An error occurred. Please try again.")
-      console.error("Login error:", err)
+      await authService.login({ email, password });
+      router.push('/'); // Redirect on success
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Login failed');
     } finally {
-      setIsLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -114,10 +99,10 @@ export function LoginForm() {
       {/* Submit Button */}
       <Button
         type="submit"
-        disabled={isLoading}
+        disabled={loading}
         className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
       >
-        {isLoading ? "Signing in..." : "Sign In"}
+        {loading ? "Signing in..." : "Sign In"}
       </Button>
 
       {/* Divider */}
@@ -131,7 +116,7 @@ export function LoginForm() {
       </div>
 
       {/* Social Login Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* <div className="grid grid-cols-2 gap-3">
         <Button
           type="button"
           variant="outline"
@@ -155,7 +140,7 @@ export function LoginForm() {
           </svg>
           GitHub
         </Button>
-      </div>
+      </div> */}
     </form>
   )
 }

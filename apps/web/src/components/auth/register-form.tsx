@@ -1,13 +1,14 @@
 "use client"
 
-import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useRouter } from "next/navigation"
+import { authService } from "@/services/auth.service"
 
 export function RegisterForm() {
+  const router = useRouter()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -32,32 +33,16 @@ export function RegisterForm() {
 
     setIsLoading(true)
 
-    // Change this using Python Backend Endpoint
     try {
-      const response = await fetch("/api/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          fullName,
-          email,
-          password,
-        }),
+      await authService.register({
+        fullName,
+        email,
+        password,
       })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.message || "Registration failed")
-        return
-      }
-
-      // Success - redirect or show confirmation
-      console.log("Registration successful:", data)
-      // TODO: Handle successful registration (redirect to login, etc.)
-    } catch (err) {
-      setError("An error occurred. Please try again.")
+      // On success, redirect to the login page with a success message
+      router.push("/login?registered=true")
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Registration failed. Please try again.")
       console.error("Registration error:", err)
     } finally {
       setIsLoading(false)
@@ -185,7 +170,7 @@ export function RegisterForm() {
       </div>
 
       {/* Social Register Buttons */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* <div className="grid grid-cols-2 gap-3">
         <Button
           type="button"
           variant="outline"
@@ -209,7 +194,7 @@ export function RegisterForm() {
           </svg>
           GitHub
         </Button>
-      </div>
+      </div> */}
     </form>
   )
 }
