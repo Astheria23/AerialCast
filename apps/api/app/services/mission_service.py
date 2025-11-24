@@ -1,7 +1,7 @@
 from ..extensions import db
 from ..models.planning import Mission, MissionWaypoint
 from ..models.master import Drone
-from ..models.enums import MissionStatus
+from ..models.enums import MissionStatus, UserRole
 
 class MissionService:
 
@@ -17,7 +17,11 @@ class MissionService:
         new_mission.notes = data.get('notes')
         new_mission.drone_id = data['drone_id']
         new_mission.created_by_user_id = user_id
-        new_mission.status = MissionStatus.DRAFT
+
+        if data.get('save_as_draft'):
+            new_mission.status = MissionStatus.DRAFT
+        else:
+            new_mission.status = MissionStatus.PENDING_APPROVAL
 
         waypoints_data = data.get('waypoints', [])
 
@@ -51,7 +55,7 @@ class MissionService:
         return mission
 
     @staticmethod
-    def update_mission(mission_id, data):
+    def update_mission(mission_id, data, user_id):
         mission = Mission.query.get_or_404(mission_id)
 
         if 'mission_name' in data:
@@ -63,12 +67,9 @@ class MissionService:
             if not drone:
                 return {"error": "Drone not found"}, 404
             mission.drone_id = data['drone_id']
+        # Status changes are no longer handled here; use change_status endpoint
         if 'status' in data:
-            from ..models.enums import MissionStatus
-            try:
-                mission.status = MissionStatus[data['status']]
-            except KeyError:
-                return {"error": "Invalid status value"}, 400
+            return {"error": "Use status action endpoint to change mission status"}, 400
 
         if 'waypoints' in data and isinstance(data['waypoints'], list):
             incoming_wps = data['waypoints']
@@ -86,6 +87,50 @@ class MissionService:
                 new_wp.altitude = wp.get('altitude', 15.0)
                 new_wp.order = wp['order']
                 mission.waypoints.append(new_wp)
+        try:
+            db.session.commit()
+            return mission, 200
+        except Exception as e:
+            db.session.rollback()
+            return {"error": str(e)}, 500
+
+    @staticmethod
+    def change_status(mission_id, action, user_id):
+        mission = Mission.query.get_or_404(mission_id)
+        from ..models.master import User
+        user = User.query.get(user_id)
+
+        if not user or user.role != UserRole.ADMIN:
+            return {"error": "Only ADMIN can change mission status"}, 403
+
+        action_map = {
+            'submit': MissionStatus.PENDING_APPROVAL,
+            'approve': MissionStatus.APPROVED,
+            'reject': MissionStatus.REJECTED,
+            'start': MissionStatus.IN_PROGRESS,
+            'complete': MissionStatus.COMPLETED,
+            'cancel': MissionStatus.CANCELED,
+        }
+        if action not in action_map:
+            return {"error": "Unknown status action"}, 400
+
+        target = action_map[action]
+        current = mission.status
+        allowed_transitions = {
+            MissionStatus.DRAFT: {MissionStatus.PENDING_APPROVAL, MissionStatus.CANCELED},
+            MissionStatus.PENDING_APPROVAL: {MissionStatus.APPROVED, MissionStatus.REJECTED, MissionStatus.CANCELED},
+            MissionStatus.APPROVED: {MissionStatus.IN_PROGRESS, MissionStatus.CANCELED},
+            MissionStatus.IN_PROGRESS: {MissionStatus.COMPLETED, MissionStatus.CANCELED},
+            MissionStatus.REJECTED: set(),
+            MissionStatus.COMPLETED: set(),
+            MissionStatus.CANCELED: set(),
+        }
+        if target == current:
+            return mission, 200
+        if target not in allowed_transitions.get(current, set()):
+            return {"error": f"Invalid transition from {current.name} to {target.name}"}, 400
+
+        mission.status = target
         try:
             db.session.commit()
             return mission, 200

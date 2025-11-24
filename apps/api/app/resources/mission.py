@@ -42,7 +42,8 @@ class MissionDetail(MethodView):
     @blp.arguments(MissionUpdateSchema(partial=True))
     @blp.response(200, MissionSchema)
     def put(self, update_data, mission_id):
-        result, status = MissionService.update_mission(mission_id, update_data)
+        user_id = get_jwt_identity()
+        result, status = MissionService.update_mission(mission_id, update_data, user_id)
         if status != 200:
             error = result.get("error") if isinstance(result, dict) else str(result)
             abort(status, message=error)
@@ -53,6 +54,20 @@ class MissionDetail(MethodView):
     @blp.response(200)
     def delete(self, mission_id):
         result, status = MissionService.delete_mission(mission_id)
+        if status != 200:
+            error = result.get("error") if isinstance(result, dict) else str(result)
+            abort(status, message=error)
+        return result
+
+@blp.route("/<uuid:mission_id>/status/<string:action>")
+class MissionStatusAction(MethodView):
+
+    @blp.doc(security=[{"BearerAuth": []}], description="Change mission status using an action. Allowed actions: submit, approve, reject, start, complete, cancel.")
+    @jwt_required()
+    @blp.response(200, MissionSchema)
+    def post(self, mission_id, action):
+        user_id = get_jwt_identity()
+        result, status = MissionService.change_status(mission_id, action, user_id)
         if status != 200:
             error = result.get("error") if isinstance(result, dict) else str(result)
             abort(status, message=error)
