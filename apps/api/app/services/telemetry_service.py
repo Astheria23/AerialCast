@@ -46,3 +46,4 @@ class TelemetryService:
             db.session.rollback()
             return False
         
+        

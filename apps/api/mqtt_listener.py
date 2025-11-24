@@ -2,11 +2,12 @@ import json
 import os
 import time
 import paho.mqtt.client as mqtt
-from app import create_app
-from app.services.telemetry_service import TelemetryService
 from dotenv import load_dotenv
 
 load_dotenv()
+
+from app import create_app
+from app.services.telemetry_service import TelemetryService
 
 MQTT_BROKER = os.getenv('MQTT_BROKER', 'broker.hivemq.com')
 MQTT_PORT = int(os.getenv('MQTT_PORT',1883))
