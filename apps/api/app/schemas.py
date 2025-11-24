@@ -1,5 +1,4 @@
 from marshmallow import Schema,fields,validate
-# Enum imports not required for dump-only Method fields currently; remove to avoid unused warnings.
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -17,6 +16,7 @@ class MissionSchema(Schema):
     created_at = fields.DateTime(dump_only=True)
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema), required=True)
     status = fields.Method("_dump_status", dump_only=True)
+    save_as_draft = fields.Boolean(load_default=False)  
 
     def _dump_status(self, obj):
         return obj.status.name if getattr(obj, 'status', None) else None
@@ -63,7 +63,7 @@ class MissionUpdateSchema(Schema):
     mission_name = fields.String()
     notes = fields.String()
     drone_id = fields.UUID()
-    status = fields.String()  # validated in service layer against enum names
+    status = fields.String()  
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
 
 

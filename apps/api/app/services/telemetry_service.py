@@ -38,11 +38,11 @@ class TelemetryService:
             
             db.session.add(new_telemetry)
             db.session.commit()
-            print(f"✅ Data disimpan untuk sesi {session.session_id}")
+            print(f"Data saved for session:{session.session_id}")
             return True
         
         except Exception as e:
-            print(f"❌ Error saving telemetry: {e}")
+            print(f"Error saving telemetry: {e}")
             db.session.rollback()
             return False
         
