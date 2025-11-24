@@ -1,6 +1,5 @@
 from marshmallow import Schema,fields,validate
-from .models.enums import DroneStatus
-from .models.enums import MissionStatus, SessionStatus
+# Enum imports not required for dump-only Method fields currently; remove to avoid unused warnings.
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -12,15 +11,15 @@ class MissionWaywpointSchema(Schema):
 class MissionSchema(Schema):
     mission_id = fields.UUID(dump_only=True)
     mission_name = fields.String(required=True)
-    status = fields.String(validate=validate.OneOf([e.name for e in MissionStatus]), dump_only=True)
     notes = fields.String()
-
     drone_id = fields.UUID(required=True)
-
-    created_by_user_id =   fields.UUID(dump_only=True)
+    created_by_user_id = fields.UUID(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+    waypoints = fields.List(fields.Nested(MissionWaywpointSchema), required=True)
+    status = fields.Method("_dump_status", dump_only=True)
 
-    waypoints = fields.List(fields.Nested(MissionWaywpointSchema),required=True)
+    def _dump_status(self, obj):
+        return obj.status.name if getattr(obj, 'status', None) else None
 
 class FlightSessionSchema(Schema):
     session_id = fields.UUID(dump_only=True)
@@ -54,9 +53,20 @@ class DroneSchema(Schema):
     name = fields.String(required=True)
     model = fields.String(required=True)
     lora_id = fields.String(required=True)
-    status = fields.String(validate=validate.OneOf([e.name for e in DroneStatus]), load_default="READY")
-    status = fields.String(validate=validate.OneOf([e.value for e in DroneStatus]), load_default="READY")
+    status = fields.Method("_dump_status", load_default="READY", dump_only=True)
     created_at = fields.DateTime(dump_only=True)
+
+    def _dump_status(self, obj):
+        return obj.status.value if getattr(obj, 'status', None) else None
+
+class MissionUpdateSchema(Schema):
+    mission_name = fields.String()
+    notes = fields.String()
+    drone_id = fields.UUID()
+    status = fields.String()  # validated in service layer against enum names
+    waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
+
+
 
 
 
