@@ -1,4 +1,4 @@
-# AerialCast API
+# AerialCast API - Backend
 
 Backend service for authentication, drone fleet management, mission planning, and flight execution/logs.
 
@@ -20,6 +20,139 @@ The API is a Flask application with JWT authentication and OpenAPI documentation
 Tips:
 - Copy `apps/api/env.example` to `apps/api/.env` and fill in required values (database URL, JWT secret, etc.).
 - Check the interactive docs at `/docs` to try endpoints and see schemas.
+
+## Usage Scenarios
+
+### 1. Onboarding & Authentication
+Register a user and obtain a JWT:
+
+```zsh
+curl -X POST http://localhost:5000/auth/register \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"pilot@example.com","password":"Secret123","full_name":"Test Pilot"}'
+
+curl -X POST http://localhost:5000/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"pilot@example.com","password":"Secret123"}'
+# => { "access_token": "<JWT>" }
+```
+
+Export the token for convenience:
+
+```zsh
+export TOKEN="<JWT>"
+```
+
+### 2. Create a Drone
+
+```zsh
+curl -X POST http://localhost:5000/api/drones/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Alpha","model":"QuadX","lora_id":"DRONE-001"}'
+```
+
+Copy the returned `drone_id`.
+
+### 3. Plan a Mission (Draft)
+
+```zsh
+curl -X POST http://localhost:5000/api/missions/ \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "mission_name":"Survey Field A",
+    "notes":"Early morning pass",
+    "drone_id":"<drone_id>",
+    "save_as_draft": true,
+    "waypoints": [
+      {"latitude":-6.201,"longitude":106.799,"order":1},
+      {"latitude":-6.202,"longitude":106.800,"order":2}
+    ]
+  }'
+```
+
+Mission starts as `DRAFT` when `save_as_draft` is true. Ensure waypoint `order` values are unique.
+
+### 4. Submit Mission for Approval
+
+```zsh
+curl -X POST http://localhost:5000/api/missions/<mission_id>/status/submit \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Status becomes `PENDING_APPROVAL`.
+
+### 5. Approve Mission (ADMIN Only)
+Login as an ADMIN user (or have your user role set to ADMIN) and approve:
+
+```zsh
+curl -X POST http://localhost:5000/api/missions/<mission_id>/status/approve \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Mission status becomes `APPROVED`.
+
+### 6. Start Execution
+Depending on system design, mission may move to `IN_PROGRESS` when a flight session is created (e.g. telemetry listener detects drone start). If you have a service that auto-creates sessions, simply begin sending telemetry or trigger the session creation logic.
+
+You can list sessions:
+
+```zsh
+curl -X GET http://localhost:5000/api/sessions/ -H "Authorization: Bearer $TOKEN"
+```
+
+### 7. End the Session
+
+```zsh
+curl -X POST http://localhost:5000/api/sessions/<session_id>/end \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+This sets the session status to `COMPLETED` and (if linked) the mission status to `COMPLETED`.
+
+### 8. Telemetry Replay
+Heavy operation returning all telemetry points in chronological order:
+
+```zsh
+curl -X GET http://localhost:5000/api/sessions/<session_id>/replay \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### 9. Update Mission Waypoints (No Status Change)
+
+```zsh
+curl -X PUT http://localhost:5000/api/missions/<mission_id> \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"waypoints":[{"latitude":-6.203,"longitude":106.801,"order":1},{"latitude":-6.204,"longitude":106.802,"order":2}]}'
+```
+
+Attempting to change `status` here will yield a 400 error—use the status action endpoint instead.
+
+### 10. Cancel a Mission
+
+```zsh
+curl -X POST http://localhost:5000/api/missions/<mission_id>/status/cancel \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+After cancellation, no further transitions are allowed.
+
+### Notes on Status Flow
+- Creation: `DRAFT` (if `save_as_draft`) else `PENDING_APPROVAL`.
+- Actions enforce allowed transitions only; invalid transitions return 400 with an error message.
+- Only ADMIN role can perform status actions.
+
+### Common Errors & Fixes
+| Error | Cause | Fix |
+|-------|-------|-----|
+| 400 Duplicate waypoint order | Reused `order` value | Ensure each waypoint has unique `order` within the mission |
+| 403 Only ADMIN can change mission status | Non-admin user used status endpoint | Use an ADMIN JWT token |
+| 400 Invalid transition | Action not valid for current status | Check current status and allowed next actions |
+| 401 Missing JWT | No Authorization header | Add `Authorization: Bearer <token>` |
+| 500 DB errors | Bad connection or migration missing | Verify `.env` and run `flask db upgrade` |
+
 
 ## Endpoints
 
