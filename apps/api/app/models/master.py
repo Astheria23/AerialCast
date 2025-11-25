@@ -68,6 +68,7 @@ class Drone(db.Model):
     maintenance_logs: Mapped[List["MaintenanceLog"]] = relationship(
         back_populates="drone"
     )
+    missions: Mapped[List["Mission"]] = relationship(back_populates="drone")
 
 
 class Geofence(db.Model):

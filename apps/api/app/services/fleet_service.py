@@ -1,6 +1,5 @@
 from ..extensions import db
 from ..models.master import Drone
-from sqlalchemy.exc import IntegrityError
 
 class FleetService:
 

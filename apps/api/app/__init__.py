@@ -1,11 +1,14 @@
 from flask import Flask
 from flask_smorest import Api
 from .config import Config
-from .extensions import db,migrate,jwt,cors
+from .extensions import db, migrate, jwt, cors
+from .resources.mission import blp as MissionBlueprint
+from .resources.auth import blp as AuthBlueprint
+from .resources.fleet import blp as FleetBlueprint
+from .resources.flight_session import blp as SessionBlueprint
 
 def create_app():
     app = Flask(__name__)
-    
     cors.init_app(app)
 
     app.config.from_object(Config)
@@ -34,15 +37,8 @@ def create_app():
 
     api = Api(app)
 
-    from . import models
-
-    from .resources.auth import blp as AuthBlueprint
-    from .resources.fleet import blp as FleetBlueprint
-
-
     api.register_blueprint(AuthBlueprint)
     api.register_blueprint(FleetBlueprint)
-    
+    api.register_blueprint(MissionBlueprint)    
+    api.register_blueprint(SessionBlueprint)
     return app
-
-    
