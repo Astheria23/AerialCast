@@ -1,4 +1,5 @@
 from marshmallow import Schema,fields,validate
+from datetime import datetime
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -78,8 +79,16 @@ class FlightSessionSchema(Schema):
     mission_name = fields.String(dump_only=True)
     drone_name = fields.String(dump_only=True)
     pilot_name = fields.String(dump_only=True)
+class MaintenanceLogSchema(Schema):
+    log_id = fields.UUID(dump_only=True)
 
+    drone_id = fields.UUID(required=True)
+    notes = fields.String(required=True)
+    log_date = fields.Date(load_default=lambda: datetime.utcnow().date())
 
+    serviced_by_user_id = fields.UUID(required=True)
+    serviced_by_name = fields.String(dump_only=True)
+    serviced_by_name=fields.String(dump_only=True)
 
 
 
