@@ -39,27 +39,36 @@
           ]
         },
         {
+                  {
+                    "name": "Update Maintenance Log (Pilot)",
+                    "request": {
+                      "method": "PUT",
+                      "header": [{"key":"Content-Type","value":"application/json"}],
+                      "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]},
+                      "body": {"mode":"raw","raw":"{\n  \"notes\": \"Updated by pilot\"\n}"}
+                    }
+                  },
+                  {
+                    "name": "Delete Maintenance Log (Pilot)",
+                    "request": { "method": "DELETE", "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]} }
+                  },
+                  {
+                    "name": "Update Maintenance Log (Admin)",
+                    "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+                    "request": {
+                      "method": "PUT",
+                      "header": [{"key":"Content-Type","value":"application/json"}],
+                      "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]},
+                      "body": {"mode":"raw","raw":"{\n  \"notes\": \"Updated by admin\"\n}"}
+                    }
+                  },
+                  {
+                    "name": "Delete Maintenance Log (Admin)",
+                    "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+                    "request": { "method": "DELETE", "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]} }
+                  }
           "name": "Pilot Register",
           "request": {
-            "method": "POST",
-            "header": [
-              {"key": "Content-Type", "value": "application/json"}
-            ],
-            "url": {"raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"]},
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"email\": \"{{pilotEmailComputed}}\",\n  \"password\": \"{{pilotPassword}}\",\n  \"full_name\": \"Pilot Test\"\n}"
-            }
-          },
-          "event": [
-            {
-              "listen": "prerequest",
-              "script": {
-                "exec": [
-                  "// compute pilot email if not set",
-                  "let pe = pm.environment.get('pilotEmail');",
-                  "if (!pe || pe.trim() === '') { pe = `pilot+${Date.now()}@example.com`; }",
-                  "pm.variables.set('pilotEmailComputed', pe);"
                 ],
                 "type": "text/javascript"
               }
@@ -209,6 +218,49 @@
         {
           "name": "End Session",
           "request": { "method": "POST", "url": {"raw": "{{baseUrl}}/api/sessions/{{session_id}}/end", "host": ["{{baseUrl}}"], "path": ["api","sessions","{{session_id}}","end"]} }
+        }
+      ]
+    }
+    ,{
+      "name": "Maintenance (Pilot create)",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{pilotToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "List Logs for Drone",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/drones/{{drone_id}}/maintenance", "host": ["{{baseUrl}}"], "path": ["api","drones","{{drone_id}}","maintenance"]} }
+        },
+        {
+          "name": "Create Maintenance Log",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/drones/{{drone_id}}/maintenance", "host": ["{{baseUrl}}"], "path": ["api","drones","{{drone_id}}","maintenance"]},
+            "body": {"mode":"raw","raw":"{\n  \"notes\": \"Routine check\",\n  \"log_date\": \"2025-11-26\"\n}"}
+          },
+          "event": [
+            {"listen":"test","script":{"type":"text/javascript","exec":[
+              "if (pm.response.code === 201) { var json = pm.response.json(); pm.environment.set('maintenance_log_id', json.log_id); }"
+            ]}}
+          ]
+        }
+      ]
+    }
+    ,{
+      "name": "Maintenance (Admin actions)",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "Update Maintenance Log",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]},
+            "body": {"mode":"raw","raw":"{\n  \"notes\": \"Updated routine check notes\"\n}"}
+          }
+        },
+        {
+          "name": "Delete Maintenance Log",
+          "request": { "method": "DELETE", "url": {"raw": "{{baseUrl}}/api/maintenance/{{maintenance_log_id}}", "host": ["{{baseUrl}}"], "path": ["api","maintenance","{{maintenance_log_id}}"]} }
         }
       ]
     }
