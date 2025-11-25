@@ -1,0 +1,216 @@
+{
+  "info": {
+    "_postman_id": "0db7dbb1-5d5f-4a7d-9a0c-111111111111",
+    "name": "AerialCast API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Admin Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{adminEmail}}\",\n  \"password\": \"{{adminPassword}}\"\n}"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var json = pm.response.json();",
+                  "  if (json && json.access_token) { pm.environment.set('adminToken', json.access_token); }",
+                  "}",
+                  "else { pm.test('Admin login failed', function(){ pm.expect.fail('HTTP ' + pm.response.code); }); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pilot Register",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/auth/register", "host": ["{{baseUrl}}"], "path": ["auth", "register"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{pilotEmailComputed}}\",\n  \"password\": \"{{pilotPassword}}\",\n  \"full_name\": \"Pilot Test\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "// compute pilot email if not set",
+                  "let pe = pm.environment.get('pilotEmail');",
+                  "if (!pe || pe.trim() === '') { pe = `pilot+${Date.now()}@example.com`; }",
+                  "pm.variables.set('pilotEmailComputed', pe);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "Pilot Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type", "value": "application/json"}
+            ],
+            "url": {"raw": "{{baseUrl}}/auth/login", "host": ["{{baseUrl}}"], "path": ["auth", "login"]},
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"{{pilotEmailComputed}}\",\n  \"password\": \"{{pilotPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  var json = pm.response.json();",
+                  "  if (json && json.access_token) { pm.environment.set('pilotToken', json.access_token); }",
+                  "}",
+                  "else { pm.test('Pilot login failed', function(){ pm.expect.fail('HTTP ' + pm.response.code); }); }"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Drones (Admin)",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "List Drones (public)",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/drones/", "host": ["{{baseUrl}}"], "path": ["api","drones",""]} }
+        },
+        {
+          "name": "Create Drone",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/drones/", "host": ["{{baseUrl}}"], "path": ["api","drones",""]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"Alpha\",\n  \"model\": \"QuadX\",\n  \"lora_id\": \"DRONE-{{$randomInt}}\"\n}"}
+          },
+          "event": [
+            {"listen":"test","script":{"type":"text/javascript","exec":[
+              "if (pm.response.code === 201) {",
+              "  var json = pm.response.json();",
+              "  pm.environment.set('drone_id', json.drone_id);",
+              "  pm.environment.set('lora_id', json.lora_id || '');",
+              "}"]}}
+          ]
+        },
+        {
+          "name": "Get Drone",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/drones/{{drone_id}}", "host": ["{{baseUrl}}"], "path": ["api","drones","{{drone_id}}"]} }
+        },
+        {
+          "name": "Update Drone",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/drones/{{drone_id}}", "host": ["{{baseUrl}}"], "path": ["api","drones","{{drone_id}}"]},
+            "body": {"mode":"raw","raw":"{\n  \"name\": \"Alpha v2\"\n}"}
+          }
+        },
+        {
+          "name": "Delete Drone",
+          "request": { "method": "DELETE", "url": {"raw": "{{baseUrl}}/api/drones/{{drone_id}}", "host": ["{{baseUrl}}"], "path": ["api","drones","{{drone_id}}"]} }
+        }
+      ]
+    },
+    {
+      "name": "Missions (Pilot create)",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{pilotToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "List Missions",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/missions/", "host": ["{{baseUrl}}"], "path": ["api","missions",""]} }
+        },
+        {
+          "name": "Create Mission (Draft)",
+          "request": {
+            "method": "POST",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/missions/", "host": ["{{baseUrl}}"], "path": ["api","missions",""]},
+            "body": {"mode":"raw","raw":"{\n  \"mission_name\": \"Survey Field A\",\n  \"notes\": \"Early morning pass\",\n  \"drone_id\": \"{{drone_id}}\",\n  \"save_as_draft\": true,\n  \"waypoints\": [\n    {\"latitude\": -6.201, \"longitude\": 106.799, \"order\": 1},\n    {\"latitude\": -6.202, \"longitude\": 106.800, \"order\": 2}\n  ]\n}"}
+          },
+          "event": [
+            {"listen":"test","script":{"type":"text/javascript","exec":[
+              "if (pm.response.code === 201) { var json = pm.response.json(); pm.environment.set('mission_id', json.mission_id); }"
+            ]}}
+          ]
+        },
+        {
+          "name": "Update Mission (no status)",
+          "request": {
+            "method": "PUT",
+            "header": [{"key":"Content-Type","value":"application/json"}],
+            "url": {"raw": "{{baseUrl}}/api/missions/{{mission_id}}", "host": ["{{baseUrl}}"], "path": ["api","missions","{{mission_id}}"]},
+            "body": {"mode":"raw","raw":"{\n  \"notes\": \"Updated notes\",\n  \"waypoints\": [\n    {\"latitude\": -6.203, \"longitude\": 106.801, \"order\": 1},\n    {\"latitude\": -6.204, \"longitude\": 106.802, \"order\": 2}\n  ]\n}"}
+          }
+        }
+      ]
+    },
+    {
+      "name": "Missions (Admin actions)",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{adminToken}}","type":"string"}] },
+      "item": [
+        { "name": "Submit Mission", "request": {"method":"POST","url":{"raw":"{{baseUrl}}/api/missions/{{mission_id}}/status/submit","host":["{{baseUrl}}"],"path":["api","missions","{{mission_id}}","status","submit"]}} },
+        { "name": "Approve Mission", "request": {"method":"POST","url":{"raw":"{{baseUrl}}/api/missions/{{mission_id}}/status/approve","host":["{{baseUrl}}"],"path":["api","missions","{{mission_id}}","status","approve"]}} },
+        { "name": "Start Mission", "request": {"method":"POST","url":{"raw":"{{baseUrl}}/api/missions/{{mission_id}}/status/start","host":["{{baseUrl}}"],"path":["api","missions","{{mission_id}}","status","start"]}} },
+        { "name": "Complete Mission", "request": {"method":"POST","url":{"raw":"{{baseUrl}}/api/missions/{{mission_id}}/status/complete","host":["{{baseUrl}}"],"path":["api","missions","{{mission_id}}","status","complete"]}} },
+        { "name": "Cancel Mission", "request": {"method":"POST","url":{"raw":"{{baseUrl}}/api/missions/{{mission_id}}/status/cancel","host":["{{baseUrl}}"],"path":["api","missions","{{mission_id}}","status","cancel"]}} }
+      ]
+    },
+    {
+      "name": "Sessions",
+      "auth": { "type": "bearer", "bearer": [{"key":"token","value":"{{pilotToken}}","type":"string"}] },
+      "item": [
+        {
+          "name": "List Sessions",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/sessions/", "host": ["{{baseUrl}}"], "path": ["api","sessions",""]} },
+          "event": [
+            {"listen":"test","script":{"type":"text/javascript","exec":[
+              "if (pm.response.code === 200) { var arr = pm.response.json(); if (Array.isArray(arr) && arr.length>0) pm.environment.set('session_id', arr[0].session_id); }"
+            ]}}
+          ]
+        },
+        {
+          "name": "Get Session",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/sessions/{{session_id}}", "host": ["{{baseUrl}}"], "path": ["api","sessions","{{session_id}}"]} }
+        },
+        {
+          "name": "Telemetry Replay",
+          "request": { "method": "GET", "url": {"raw": "{{baseUrl}}/api/sessions/{{session_id}}/replay", "host": ["{{baseUrl}}"], "path": ["api","sessions","{{session_id}}","replay"]} }
+        },
+        {
+          "name": "End Session",
+          "request": { "method": "POST", "url": {"raw": "{{baseUrl}}/api/sessions/{{session_id}}/end", "host": ["{{baseUrl}}"], "path": ["api","sessions","{{session_id}}","end"]} }
+        }
+      ]
+    }
+  ]
+}
