@@ -20,17 +20,6 @@ class MissionSchema(Schema):
 
     def _dump_status(self, obj):
         return obj.status.name if getattr(obj, 'status', None) else None
-
-class FlightSessionSchema(Schema):
-    session_id = fields.UUID(dump_only=True)
-    drone_id = fields.UUID()
-    mission_id = fields.UUID()
-    pilot_id = fields.UUID()
-
-    status = fields.String()
-    started_at = fields.DateTime()
-    ended_at = fields.DateTime()
-
 class UserRegisterSchema(Schema):
     full_name = fields.String(required=True, validate=validate.Length(min=3))
     email = fields.Email(required=True)
@@ -66,6 +55,29 @@ class MissionUpdateSchema(Schema):
     status = fields.String()  
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
 
+
+class TelemetryDataSchema(Schema):
+    telemetry_id = fields.UUID(dump_only=True)
+    latitude = fields.Float()
+    longitude = fields.Float()
+    altitude = fields.Float()
+    battery_voltage = fields.Float()
+    rssi = fields.Integer()
+    
+
+class FlightSessionSchema(Schema):
+    session_id = fields.UUID(dump_only=True)
+    status = fields.String(dump_only=True)
+    start_time = fields.DateTime(dump_only=True)
+    end_time = fields.DateTime(dump_only=True)
+
+    mission_id = fields.UUID(dump_only=True)
+    drone_id = fields.UUID(dump_only=True)
+    pilot_id = fields.UUID(dump_only=True)
+
+    mission_name = fields.String(dump_only=True)
+    drone_name = fields.String(dump_only=True)
+    pilot_name = fields.String(dump_only=True)
 
 
 
