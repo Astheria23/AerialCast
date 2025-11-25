@@ -6,6 +6,8 @@ from .resources.mission import blp as MissionBlueprint
 from .resources.auth import blp as AuthBlueprint
 from .resources.fleet import blp as FleetBlueprint
 from .resources.flight_session import blp as SessionBlueprint
+from .resources.maintenance import blp as MaintenanceBlueprint
+
 
 def create_app():
     app = Flask(__name__)
@@ -28,7 +30,10 @@ def create_app():
                     "bearerFormat": "JWT"
                 }
             }
-        }
+        },
+        "security": [
+            {"BearerAuth": []}
+        ]
     }
 
     db.init_app(app)
@@ -41,4 +46,5 @@ def create_app():
     api.register_blueprint(FleetBlueprint)
     api.register_blueprint(MissionBlueprint)    
     api.register_blueprint(SessionBlueprint)
+    api.register_blueprint(MaintenanceBlueprint)
     return app
