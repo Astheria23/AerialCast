@@ -1,0 +1,43 @@
+from flask.views import MethodView
+from flask_smorest import Blueprint, abort
+from flask_jwt_extended import jwt_required
+from ..schemas import ChecklistSchema
+from ..services.checklist_service import ChecklistService
+
+blp = Blueprint("Checklists", "checklists", description="Checklist Templates Management", url_prefix="/api/checklists")
+
+@blp.route("/")
+class ChecklistList(MethodView):
+    
+    @jwt_required()
+    @blp.response(200, ChecklistSchema(many=True))
+    def get(self):
+        """Get all checklist templates"""
+        return ChecklistService.get_all_checklists()
+
+    @jwt_required() # Idealnya cuma Admin, bisa tambah decorator @admin_required
+    @blp.arguments(ChecklistSchema)
+    @blp.response(201, ChecklistSchema)
+    def post(self, checklist_data):
+        """Create new checklist template"""
+        result, status = ChecklistService.create_checklist(checklist_data)
+        if status != 201:
+            abort(status, message=result.get("error"))
+        return result
+
+@blp.route("/<uuid:checklist_id>")
+class ChecklistDetail(MethodView):
+    
+    @jwt_required()
+    @blp.response(200, ChecklistSchema)
+    def get(self, checklist_id):
+        """Get detail checklist"""
+        return ChecklistService.get_checklist_by_id(checklist_id)
+
+    @jwt_required()
+    def delete(self, checklist_id):
+        """Delete checklist template"""
+        result, status = ChecklistService.delete_checklist(checklist_id)
+        if status != 200:
+            abort(status, message=result.get("error"))
+        return result
