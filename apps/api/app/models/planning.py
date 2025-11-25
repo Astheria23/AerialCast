@@ -41,7 +41,14 @@ class Mission(db.Model):
             "drone_id": str(self.drone_id),
             "created_by_user_id": str(self.created_by_user_id),
             "created_at": self.created_at.isoformat() if self.created_at else None,
-            "waypoints": [wp.to_dict() for wp in self.waypoints]
+            "waypoints": [wp.to_dict() for wp in self.waypoints],
+            "required_checklists": [
+                {
+                    "checklist_id": str(ch.checklist_id),
+                    "title": ch.title,
+                    "type": ch.type.value
+                } for ch in self.required_checklists
+            ]
         }
 
 class MissionWaypoint(db.Model):
