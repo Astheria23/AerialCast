@@ -7,6 +7,7 @@ from .resources.auth import blp as AuthBlueprint
 from .resources.fleet import blp as FleetBlueprint
 from .resources.flight_session import blp as SessionBlueprint
 from .resources.maintenance import blp as MaintenanceBlueprint
+from .resources.checklist import blp as ChecklistBlueprint
 
 
 def create_app():
@@ -47,4 +48,5 @@ def create_app():
     api.register_blueprint(MissionBlueprint)    
     api.register_blueprint(SessionBlueprint)
     api.register_blueprint(MaintenanceBlueprint)
+    api.register_blueprint(ChecklistBlueprint)
     return app
