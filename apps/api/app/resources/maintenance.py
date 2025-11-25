@@ -6,16 +6,17 @@ from ..services.maintenance_service import MaintenanceService
 
 blp = Blueprint("Maintenance", "maintenance", description="Drone Maintenance Logs", url_prefix="/api")
 
-# --- Endpoint per Drone ---
 @blp.route("/drones/<uuid:drone_id>/maintenance")
 class DroneMaintenanceList(MethodView):
-    
+
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     @blp.response(200, MaintenanceLogSchema(many=True))
     def get(self, drone_id):
         """Get maintenance history for a drone"""
         return MaintenanceService.get_logs_by_drone(drone_id)
-
+    
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     @blp.arguments(MaintenanceLogSchema)
     @blp.response(201, MaintenanceLogSchema)
@@ -29,10 +30,10 @@ class DroneMaintenanceList(MethodView):
             abort(status, message=error)
         return result
 
-# --- Endpoint per Log (Edit/Delete) ---
 @blp.route("/maintenance/<uuid:log_id>")
 class MaintenanceDetail(MethodView):
     
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     @blp.arguments(MaintenanceLogSchema(partial=True))
     @blp.response(200, MaintenanceLogSchema)
@@ -46,7 +47,8 @@ class MaintenanceDetail(MethodView):
         if status != 200:
             abort(status, message=result.get("error"))
         return result
-
+    
+    @blp.doc(security=[{"BearerAuth": []}])
     @jwt_required()
     def delete(self, log_id):
         """Delete a log entry"""

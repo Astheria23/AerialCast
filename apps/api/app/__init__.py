@@ -30,7 +30,10 @@ def create_app():
                     "bearerFormat": "JWT"
                 }
             }
-        }
+        },
+        "security": [
+            {"BearerAuth": []}
+        ]
     }
 
     db.init_app(app)
