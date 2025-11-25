@@ -26,7 +26,6 @@ class FlightSessionService:
             status=MissionStatus.APPROVED
         ).first()
 
-        # Select pilot: use mission creator if available, else fallback to an ADMIN user
         pilot_id = None
         if mission and mission.created_by_user_id:
             pilot_id = mission.created_by_user_id
