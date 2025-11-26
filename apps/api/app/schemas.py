@@ -109,6 +109,11 @@ class ChecklistSchema(Schema):
     
     items = fields.List(fields.Nested(ChecklistItemSchema), required=True)
 
+class ChecklistUpdateSchema(Schema):
+    title = fields.String()
+    type = fields.String(validate=validate.OneOf([e.name for e in ChecklistType]))
+    items = fields.List(fields.Nested(ChecklistItemSchema))
+
 class ChecklistRefSchema(Schema):
     checklist_id = fields.UUID(dump_only=True)
     title = fields.String(dump_only=True)

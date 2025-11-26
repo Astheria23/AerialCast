@@ -102,3 +102,67 @@ class ChecklistService:
         except Exception as e:
             db.session.rollback()
             return {"error": str(e)}, 500
+
+    @staticmethod
+    def update_checklist(checklist_id, data):
+
+        checklist = Checklist.query.get_or_404(checklist_id)
+
+        # Update title jika ada
+        if 'title' in data:
+            title = data.get('title')
+            if title is not None:
+                if not isinstance(title, str) or not title.strip():
+                    return {"error": "title harus string non-kosong"}, 400
+                checklist.title = title.strip()
+
+        # Update type jika ada
+        if 'type' in data:
+            raw_type = data.get('type')
+            if raw_type is not None:
+                try:
+                    checklist.type = _parse_checklist_type(raw_type)
+                except ValueError as e:
+                    return {"error": str(e), "allowed_types": [ct.value for ct in ChecklistType]}, 400
+
+        # Replace items jika diberikan
+        if 'items' in data:
+            items_data = data.get('items')
+            if items_data is None:
+                # Interpret None as clear all items
+                checklist.items.clear()
+            else:
+                if not isinstance(items_data, list):
+                    return {"error": "items harus berupa list"}, 400
+                # Clear existing items first (cascade akan hapus orphan saat commit)
+                checklist.items.clear()
+                seen_orders = set()
+                for idx, item in enumerate(items_data):
+                    if not isinstance(item, dict):
+                        return {"error": f"Item index {idx} harus object"}, 400
+                    if 'item_text' not in item or 'order' not in item:
+                        return {"error": f"Item index {idx} wajib punya field item_text dan order"}, 400
+                    item_text = item['item_text']
+                    order = item['order']
+                    if not isinstance(item_text, str) or not item_text.strip():
+                        return {"error": f"Item index {idx} item_text invalid"}, 400
+                    if not isinstance(order, int):
+                        return {"error": f"Item index {idx} order harus integer"}, 400
+                    if order in seen_orders:
+                        return {"error": f"Duplikat order pada item index {idx}: {order}"}, 400
+                    seen_orders.add(order)
+                    new_item = ChecklistItem()
+                    new_item.item_text = item_text.strip()
+                    new_item.order = order
+                    checklist.items.append(new_item)
+
+        # Simpan
+        try:
+            db.session.commit()
+            return checklist, 200
+        except IntegrityError as ie:
+            db.session.rollback()
+            return {"error": "Integrity error saat update", "detail": str(ie)}, 400
+        except Exception as e:
+            db.session.rollback()
+            return {"error": str(e)}, 500
