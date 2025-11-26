@@ -29,9 +29,6 @@ class MaintenanceService:
 
     @staticmethod
     def get_logs_by_drone(drone_id):
-        """
-        Mengambil history perawatan satu drone
-        """
         return MaintenanceLog.query.filter_by(drone_id=drone_id).order_by(MaintenanceLog.log_date.desc()).all()
 
     @staticmethod
@@ -39,7 +36,7 @@ class MaintenanceService:
         log = MaintenanceLog.query.get_or_404(log_id)
         
         if role != 'ADMIN' and str(log.serviced_by_user_id) != str(user_id):
-             return {"error": "Unauthorized"}, 403
+             return {"error": "Unauthorized: you are not allowed to modify this log"}, 403
 
         if 'notes' in data:
             log.notes = data['notes']
@@ -53,7 +50,7 @@ class MaintenanceService:
     def delete_log(log_id, user_id, role):
         log = MaintenanceLog.query.get_or_404(log_id)
         if role != 'ADMIN' and str(log.serviced_by_user_id) != str(user_id):
-             return {"error": "Unauthorized"}, 403
+             return {"error": "Unauthorized: you are not allowed to delete this log"}, 403
              
         db.session.delete(log)
         db.session.commit()
