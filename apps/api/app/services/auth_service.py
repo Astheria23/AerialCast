@@ -31,38 +31,41 @@ class AuthService:
             db.session.commit()
             access_token = create_access_token(identity=str(new_user.user_id), additional_claims={"role":role})
 
-            return{
-                "message": "User Registered Sucessfully",
-                "user" : new_user.to_dict(), 
-                "access_token" : access_token
-            },201
+            return {
+                "message": "User registered successfully",
+                "user": new_user.to_dict(),
+                "access_token": access_token
+            }, 201
         
         except IntegrityError:
             db.session.rollback()
-            return {"Error" : "Database error"},500
+            return {"error": "Database integrity error"}, 500
         
     
     @staticmethod
     def login_user(data):
-        email = data['email']
-        password = data['password']
+        email = data["email"]
+        password = data["password"]
 
-        user =User.query.filter_by(email=email).first()
+        user = User.query.filter_by(email=email).first()
 
         if user and pbkdf2_sha256.verify(password, user.password_hash):
-            access_token = create_access_token(identity=str(user.user_id), additional_claims={"role":user.role.value})
+            access_token = create_access_token(identity=str(user.user_id), additional_claims={"role": user.role.value})
+            return {
+                "message": "Login successful",
+                "access_token": access_token,
+                "user": user.to_dict()
+            }, 200
 
-            return{
-                "message" : "Login successful",
-                "access_token" : access_token,
-                "user" : user.to_dict()
-            },200
-        return {
-            "error" : "invalid credetials"
-        } , 401
+        return {"error": "Invalid credentials"}, 401
+
+
+
+
+
+
+
+
         
 
 
-
-
-        

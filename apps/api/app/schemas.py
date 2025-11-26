@@ -1,6 +1,6 @@
-from marshmallow import Schema,fields,validate
+from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime
-from .models.enums import ChecklistType
+from .models.enums import ChecklistType, GeofenceType
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -85,6 +85,7 @@ class FlightSessionSchema(Schema):
     mission_name = fields.String(dump_only=True)
     drone_name = fields.String(dump_only=True)
     pilot_name = fields.String(dump_only=True)
+    
 class MaintenanceLogSchema(Schema):
     log_id = fields.UUID(dump_only=True)
 
@@ -119,3 +120,34 @@ class ChecklistRefSchema(Schema):
     title = fields.String(dump_only=True)
     type = fields.String(dump_only=True)
 
+class GeofencePointSchema(Schema):
+    point_id = fields.UUID(dump_only=True)
+    latitude = fields.Float(required=True)
+    longitude = fields.Float(required=True)
+    order = fields.Integer(required=True)
+
+class GeofenceSchema(Schema):
+    geofence_id = fields.UUID(dump_only=True)
+    area_name = fields.String(required=True)
+    type = fields.Method("_dump_type", deserialize="_load_type", required=True)
+    created_at = fields.DateTime(dump_only=True)
+
+    points = fields.List(fields.Nested(GeofencePointSchema), required=True)
+
+    def _dump_type(self, obj):
+        t = getattr(obj, 'type', None)
+        return t.name if t else None
+
+    def _load_type(self, value):
+        if not isinstance(value, str):
+            raise ValidationError("type must be a string")
+        candidate = value.strip().upper()
+        allowed = [e.name for e in GeofenceType]
+        if candidate not in allowed:
+            raise ValidationError(f"Invalid geofence type. Allowed: {allowed}")
+        return candidate
+
+class GeofenceUpdateSchema(Schema):
+    area_name = fields.String()
+    type = fields.String(validate=validate.OneOf([e.name for e in GeofenceType]))
+    points = fields.List(fields.Nested(GeofencePointSchema))

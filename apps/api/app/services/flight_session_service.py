@@ -63,17 +63,16 @@ class FlightSessionService:
     
     @staticmethod
     def get_telemetry_replay(session_id):
-        """
-        Warning!, Could be thusands of records, use with caution!
+        """Return telemetry replay for a session.
+
+        Warning: could be thousands of records; use with caution.
         """
         return TelemetryData.query.filter_by(session_id=session_id).order_by(TelemetryData.time.asc()).all()
         
 
     @staticmethod
     def end_session(session_id):
-        """
-        Manual stop dari Frontend 
-        """
+        """Manually end a LIVE session (triggered from frontend)."""
         session = FlightSession.query.get_or_404(session_id)
         session.status = SessionStatus.COMPLETED
         session.end_time = datetime.utcnow()
