@@ -21,10 +21,9 @@ class GeofenceList(MethodView):
     def post(self, geofence_data):
         """Create new geofence area"""
         result, status = GeofenceService.create_geofence(geofence_data)
-        if status != 201:
+        if status not in (200, 201):
             abort(status, message=result.get("error"))
         return result
-
 @blp.route("/<uuid:geofence_id>")
 class GeofenceDetail(MethodView):
     

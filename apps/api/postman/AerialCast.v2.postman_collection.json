@@ -98,11 +98,102 @@
       ]
     },
     {
-      "name": "Checklists (Admin)",
+      "name": "Geofences (Admin)",
       "auth": {
         "type": "bearer",
         "bearer": [
           { "key": "token", "value": "{{adminToken}}", "type": "string" }
+        ]
+      },
+      "item": [
+        {
+          "name": "List Geofences",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/geofences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "geofences"]
+            }
+          }
+        },
+        {
+          "name": "Create Geofence (NO_FLY_ZONE)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/geofences",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "geofences"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_name\": \"Campus NFZ A\",\n  \"type\": \"NO_FLY_ZONE\",\n  \"points\": [\n    {\"latitude\": -6.2001, \"longitude\": 106.7991, \"order\": 1},\n    {\"latitude\": -6.2005, \"longitude\": 106.8002, \"order\": 2},\n    {\"latitude\": -6.2010, \"longitude\": 106.7996, \"order\": 3}\n  ]\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) { var j = pm.response.json(); if (j && (j.geofence_id || j.geofence_id === 0)) { pm.environment.set('geofence_id', j.geofence_id); } }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Geofence",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/geofences/{{geofence_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "geofences", "{{geofence_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Update Geofence (rename + SAFE_ZONE)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/geofences/{{geofence_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "geofences", "{{geofence_id}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"area_name\": \"Campus Zone East\",\n  \"type\": \"SAFE_ZONE\",\n  \"points\": [\n    {\"latitude\": -6.2002, \"longitude\": 106.7992, \"order\": 1},\n    {\"latitude\": -6.2006, \"longitude\": 106.8001, \"order\": 2},\n    {\"latitude\": -6.2009, \"longitude\": 106.7997, \"order\": 3}\n  ]\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Geofence",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/geofences/{{geofence_id}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "geofences", "{{geofence_id}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checklists",
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          { "key": "token", "value": "{{pilotToken}}", "type": "string" }
         ]
       },
       "item": [
