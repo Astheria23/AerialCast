@@ -39,15 +39,15 @@ class MissionService:
         checklist_ids = data.get('checklist_ids', [])
         if checklist_ids is not None:
             if not isinstance(checklist_ids, list):
-                return {"error": "checklist_ids must be a list of UUIDs"}, 400
+                return {"error": "checklist_ids harus berupa list UUID"}, 400
             if len(checklist_ids) != len(set(checklist_ids)):
-                return {"error": "Duplicate checklist_ids are not allowed"}, 400
+                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
             if checklist_ids:
                 found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
                 found_ids = {c.checklist_id for c in found}
                 missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
                 if missing:
-                    return {"error": "Checklist not found", "missing_ids": missing}, 400
+                    return {"error": "Checklist tidak ditemukan", "missing_ids": missing}, 400
                 for c in found:
                     new_mission.required_checklists.append(c)
 
@@ -102,20 +102,20 @@ class MissionService:
                 new_wp.order = wp['order']
                 mission.waypoints.append(new_wp)
       
-
+      
         if 'checklist_ids' in data:
             checklist_ids = data.get('checklist_ids') or []
             if not isinstance(checklist_ids, list):
-                return {"error": "checklist_ids must be a list of UUIDs"}, 400
+                return {"error": "checklist_ids harus berupa list UUID"}, 400
             if len(checklist_ids) != len(set(checklist_ids)):
-                return {"error": "Duplicate checklist_ids are not allowed"}, 400
+                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
             mission.required_checklists.clear()
             if checklist_ids:
                 found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
                 found_ids = {c.checklist_id for c in found}
                 missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
                 if missing:
-                    return {"error": "Checklist not found", "missing_ids": missing}, 400
+                    return {"error": "Checklist tidak ditemukan", "missing_ids": missing}, 400
                 for c in found:
                     mission.required_checklists.append(c)
         try:
