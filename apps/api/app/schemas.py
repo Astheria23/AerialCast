@@ -1,4 +1,4 @@
-from marshmallow import Schema,fields,validate
+from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime
 from .models.enums import ChecklistType, GeofenceType
 
@@ -129,10 +129,23 @@ class GeofencePointSchema(Schema):
 class GeofenceSchema(Schema):
     geofence_id = fields.UUID(dump_only=True)
     area_name = fields.String(required=True)
-    type = fields.String(validate=validate.OneOf([e.name for e in GeofenceType]), required=True)
+    type = fields.Method("_dump_type", deserialize="_load_type", required=True)
     created_at = fields.DateTime(dump_only=True)
 
     points = fields.List(fields.Nested(GeofencePointSchema), required=True)
+
+    def _dump_type(self, obj):
+        t = getattr(obj, 'type', None)
+        return t.name if t else None
+
+    def _load_type(self, value):
+        if not isinstance(value, str):
+            raise ValidationError("type must be a string")
+        candidate = value.strip().upper()
+        allowed = [e.name for e in GeofenceType]
+        if candidate not in allowed:
+            raise ValidationError(f"Invalid geofence type. Allowed: {allowed}")
+        return candidate
 
 class GeofenceUpdateSchema(Schema):
     area_name = fields.String()
