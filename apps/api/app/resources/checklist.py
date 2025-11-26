@@ -22,7 +22,8 @@ class ChecklistList(MethodView):
         """Create new checklist template"""
         result, status = ChecklistService.create_checklist(checklist_data)
         if status != 201:
-            abort(status, message=result.get("error"))
+            error = result.get("error") if isinstance(result, dict) else str(result)
+            abort(status, message=error)
         return result
 
 @blp.route("/<uuid:checklist_id>")
