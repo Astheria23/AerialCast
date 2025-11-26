@@ -1,6 +1,7 @@
 from marshmallow import Schema, fields, validate, ValidationError
 from datetime import datetime
 from .models.enums import ChecklistType, GeofenceType
+from .models.enums import AlertType
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -151,3 +152,16 @@ class GeofenceUpdateSchema(Schema):
     area_name = fields.String()
     type = fields.String(validate=validate.OneOf([e.name for e in GeofenceType]))
     points = fields.List(fields.Nested(GeofencePointSchema))
+
+class AlertSchema(Schema):
+    alert_id = fields.UUID(dump_only=True)
+    alert_type = fields.String(validate=validate.OneOf([e.name for e in AlertType]))
+    message = fields.String(dump_only=True)
+    timestamp = fields.DateTime(dump_only=True)
+
+    drone_name = fields.String(dump_only=True)
+    pilot_name = fields.String(dump_only=True)
+
+
+
+    

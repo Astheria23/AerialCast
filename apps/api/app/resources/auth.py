@@ -17,7 +17,6 @@ class UserRegister(MethodView):
 
         return result, status_code
     
-
 @blp.route("/login")
 class UserLogin(MethodView):
 

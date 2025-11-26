@@ -3,7 +3,7 @@ from ..models.execution import FlightSession, TelemetryData
 from ..models.master import Drone
 from ..models.enums import SessionStatus
 from datetime import datetime
-
+from .alert_service import AlertService
 class TelemetryService:
 
     @staticmethod
@@ -39,6 +39,16 @@ class TelemetryService:
             db.session.add(new_telemetry)
             db.session.commit()
             print(f"Data saved for session:{session.session_id}")
+
+            AlertService.check_all_alerts(
+                session = session,
+                lat = payload.get('lat'),
+                lon = payload.get('lon'),
+                vbat = payload.get('vbat')
+
+            )
+
+            print(f"Alerts checked for session:{session.session_id}")
             return True
         
         except Exception as e:
