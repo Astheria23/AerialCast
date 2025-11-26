@@ -1,6 +1,6 @@
 from ..extensions import db
 from ..models.planning import Mission, MissionWaypoint
-from ..models.master import Drone
+from ..models.master import Drone, Checklist
 from ..models.enums import MissionStatus, UserRole
 
 class MissionService:
@@ -24,7 +24,6 @@ class MissionService:
             new_mission.status = MissionStatus.PENDING_APPROVAL
 
         waypoints_data = data.get('waypoints', [])
-
         orders = [wp['order'] for wp in waypoints_data if 'order' in wp]
         if len(orders) != len(set(orders)):
             return {"error": "Duplicate waypoint order values are not allowed"}, 400
@@ -36,6 +35,21 @@ class MissionService:
             new_wp.altitude = wp.get('altitude', 15.0)
             new_wp.order = wp['order']
             new_mission.waypoints.append(new_wp)
+
+        checklist_ids = data.get('checklist_ids', [])
+        if checklist_ids is not None:
+            if not isinstance(checklist_ids, list):
+                return {"error": "checklist_ids harus berupa list UUID"}, 400
+            if len(checklist_ids) != len(set(checklist_ids)):
+                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
+            if checklist_ids:
+                found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
+                found_ids = {c.checklist_id for c in found}
+                missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
+                if missing:
+                    return {"error": "Checklist tidak ditemukan", "missing_ids": missing}, 400
+                for c in found:
+                    new_mission.required_checklists.append(c)
 
         try:
             db.session.add(new_mission)
@@ -67,7 +81,7 @@ class MissionService:
             if not drone:
                 return {"error": "Drone not found"}, 404
             mission.drone_id = data['drone_id']
-        # Status changes are no longer handled here; use change_status endpoint
+
         if 'status' in data:
             return {"error": "Use status action endpoint to change mission status"}, 400
 
@@ -87,6 +101,23 @@ class MissionService:
                 new_wp.altitude = wp.get('altitude', 15.0)
                 new_wp.order = wp['order']
                 mission.waypoints.append(new_wp)
+      
+      
+        if 'checklist_ids' in data:
+            checklist_ids = data.get('checklist_ids') or []
+            if not isinstance(checklist_ids, list):
+                return {"error": "checklist_ids harus berupa list UUID"}, 400
+            if len(checklist_ids) != len(set(checklist_ids)):
+                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
+            mission.required_checklists.clear()
+            if checklist_ids:
+                found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
+                found_ids = {c.checklist_id for c in found}
+                missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
+                if missing:
+                    return {"error": "Checklist tidak ditemukan", "missing_ids": missing}, 400
+                for c in found:
+                    mission.required_checklists.append(c)
         try:
             db.session.commit()
             return mission, 200

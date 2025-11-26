@@ -1,5 +1,6 @@
 from marshmallow import Schema,fields,validate
 from datetime import datetime
+from .models.enums import ChecklistType
 
 class MissionWaywpointSchema(Schema):
     waypoint_id = fields.UUID(dump_only=True)
@@ -18,6 +19,10 @@ class MissionSchema(Schema):
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema), required=True)
     status = fields.Method("_dump_status", dump_only=True)
     save_as_draft = fields.Boolean(load_default=False)  
+
+    checklist_ids = fields.List(fields.UUID(), load_default=list)
+
+    required_checklists = fields.List(fields.Nested(lambda: ChecklistRefSchema()), dump_only=True)
 
     def _dump_status(self, obj):
         return obj.status.name if getattr(obj, 'status', None) else None
@@ -55,6 +60,7 @@ class MissionUpdateSchema(Schema):
     drone_id = fields.UUID()
     status = fields.String()  
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
+    checklist_ids = fields.List(fields.UUID())
 
 
 class TelemetryDataSchema(Schema):
@@ -91,4 +97,25 @@ class MaintenanceLogSchema(Schema):
     serviced_by_name=fields.String(dump_only=True)
 
 
+class ChecklistItemSchema(Schema):
+    item_id = fields.UUID(dump_only=True)
+    item_text = fields.String(required=True) 
+    order = fields.Integer(required=True)    
+
+class ChecklistSchema(Schema):
+    checklist_id = fields.UUID(dump_only=True)
+    title = fields.String(required=True)     
+    type = fields.String(validate=validate.OneOf([e.name for e in ChecklistType]), required=True)
+    
+    items = fields.List(fields.Nested(ChecklistItemSchema), required=True)
+
+class ChecklistUpdateSchema(Schema):
+    title = fields.String()
+    type = fields.String(validate=validate.OneOf([e.name for e in ChecklistType]))
+    items = fields.List(fields.Nested(ChecklistItemSchema))
+
+class ChecklistRefSchema(Schema):
+    checklist_id = fields.UUID(dump_only=True)
+    title = fields.String(dump_only=True)
+    type = fields.String(dump_only=True)
 
