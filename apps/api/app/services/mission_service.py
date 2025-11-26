@@ -101,7 +101,8 @@ class MissionService:
                 new_wp.altitude = wp.get('altitude', 15.0)
                 new_wp.order = wp['order']
                 mission.waypoints.append(new_wp)
-        # Update checklist attachments if provided
+      
+      
         if 'checklist_ids' in data:
             checklist_ids = data.get('checklist_ids') or []
             if not isinstance(checklist_ids, list):

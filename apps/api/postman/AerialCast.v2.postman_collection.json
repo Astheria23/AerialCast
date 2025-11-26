@@ -185,6 +185,24 @@
               "path": ["api", "checklists", "{{checklist_id_pre}}"]
             }
           }
+        },
+        {
+          "name": "Update Checklist (Pre)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/checklists/{{checklist_id_pre}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "checklists", "{{checklist_id_pre}}"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Pre-Flight Sample Updated\",\n  \"items\": [\n    {\"item_text\": \"Check propellers (tightened)\", \"order\": 1},\n    {\"item_text\": \"Battery secure\", \"order\": 2},\n    {\"item_text\": \"Firmware version verified\", \"order\": 3}\n  ]\n}"
+            }
+          }
         }
       ]
     },
