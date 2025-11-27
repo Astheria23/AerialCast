@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity, get_jwt
 from ..schemas import MaintenanceLogSchema
 from ..services.maintenance_service import MaintenanceService
 
-blp = Blueprint("Maintenance", "maintenance", description="Drone Maintenance Logs", url_prefix="/api")
+blp = Blueprint("Maintenance", "maintenance", description="Drone Maintenance Logs", url_prefix="/api/v1")
 
 @blp.route("/drones/<uuid:drone_id>/maintenance")
 class DroneMaintenanceList(MethodView):

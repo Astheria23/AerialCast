@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..schemas import MissionSchema, MissionUpdateSchema
 from ..services.mission_service import MissionService
 
-blp = Blueprint("Missions", "missions", description="Mission Planning", url_prefix="/api/missions")
+blp = Blueprint("Missions", "missions", description="Mission Planning", url_prefix="/api/v1/missions")
 
 @blp.route("/")
 class MissionList(MethodView):
