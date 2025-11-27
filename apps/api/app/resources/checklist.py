@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required
 from ..schemas import ChecklistSchema, ChecklistUpdateSchema
 from ..services.checklist_service import ChecklistService
 
-blp = Blueprint("Checklists", "checklists", description="Checklist Templates Management", url_prefix="/api/checklists")
+blp = Blueprint("Checklists", "checklists", description="Checklist Templates Management", url_prefix="/api/v1/checklists")
 
 @blp.route("/")
 class ChecklistList(MethodView):
