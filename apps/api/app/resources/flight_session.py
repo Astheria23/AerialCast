@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required
 from ..schemas import FlightSessionSchema, TelemetryDataSchema
 from ..services.flight_session_service import FlightSessionService
 
-blp = Blueprint("FlightSessions", "flight_sessions", description="Flight Execution & Logs", url_prefix="/api/sessions")
+blp = Blueprint("FlightSessions", "flight_sessions", description="Flight Execution & Logs", url_prefix="/api/v1/sessions")
 
 @blp.route("/")
 class SessionList(MethodView):

@@ -4,7 +4,7 @@ from flask_jwt_extended import jwt_required
 from ..schemas import GeofenceSchema, GeofenceUpdateSchema
 from ..services.geofence_service import GeofenceService
 
-blp = Blueprint("Geofences", "geofences", description="Geofence Area Management", url_prefix="/api/geofences")
+blp = Blueprint("Geofences", "geofences", description="Geofence Area Management", url_prefix="/api/v1/geofences")
 
 @blp.route("/")
 class GeofenceList(MethodView):
