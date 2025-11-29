@@ -1,3 +1,4 @@
+import uuid
 from ..extensions import db
 from ..models.master import Drone, DroneSpecs
 
@@ -11,10 +12,11 @@ class FleetService:
             return {"error": "LoRa ID already registered"}, 409
         
         new_drone = Drone(**data)
+        if getattr(new_drone, "drone_id", None) is None:
+            new_drone.drone_id = uuid.uuid4()
 
         try:
             db.session.add(new_drone)
-            db.flush()
 
             if specs_data:
                 allowed_keys = {
@@ -60,25 +62,24 @@ class FleetService:
         for key, value in data.items():
             setattr(drone, key, value)
         if specs_data:
+            allowed_keys = {
+                "flight_controller",
+                "motor",
+                "esc",
+                "propeller",
+                "battery",
+                "gps_module",
+                "weight_g",
+                "max_flight_time_min",
+                "additional_info",
+                "image_url",
+            }
             if drone.specs:
-                # Kalau udah ada spek, update isinya
                 for key, value in specs_data.items():
-                    setattr(drone.specs, key, value)
+                    if key in allowed_keys:
+                        setattr(drone.specs, key, value)
             else:
-                allowed_keys = {
-                    "flight_controller",
-                    "motor",
-                    "esc",
-                    "propeller",
-                    "battery",
-                    "gps_module",
-                    "weight_g",
-                    "max_flight_time_min",
-                    "additional_info",
-                    "image_url",
-                }
                 clean_specs = {k: v for k, v in specs_data.items() if k in allowed_keys}
-
                 new_specs = DroneSpecs(**clean_specs)
                 new_specs.drone_id = drone.drone_id
                 db.session.add(new_specs)
