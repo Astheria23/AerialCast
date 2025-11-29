@@ -9,6 +9,7 @@ from .resources.flight_session import blp as SessionBlueprint
 from .resources.maintenance import blp as MaintenanceBlueprint
 from .resources.checklist import blp as ChecklistBlueprint
 from .resources.geofence import blp as GeofenceBlueprint
+from .resources.upload import blp as UploadBucket
 
 
 def create_app():
@@ -51,4 +52,5 @@ def create_app():
     api.register_blueprint(MaintenanceBlueprint)
     api.register_blueprint(ChecklistBlueprint)
     api.register_blueprint(GeofenceBlueprint)
+    api.register_blueprint(UploadBucket)
     return app
