@@ -1,13 +1,17 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useDrones } from "@/hooks/drones.hooks"
+import { useAuth } from "@/hooks/auth.hooks"
 import { DroneCard } from "@/components/drones/drone-card"
 import { Button } from "@/components/ui/button"
 import { Plus, Loader2 } from "lucide-react"
+import { Drone } from "@/types/drones.types"
 
 export default function DronesPage() {
   const { drones, loading, error, fetchDrones, deleteDrone } = useDrones()
+  const { isAdmin } = useAuth()
+  const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null)
 
   useEffect(() => {
     fetchDrones()
@@ -23,6 +27,12 @@ export default function DronesPage() {
     }
   }
 
+  const handleViewDetail = (drone: Drone) => {
+    setSelectedDrone(drone)
+    // You can add a modal or navigate to detail page
+    console.log("View detail for drone:", drone)
+  }
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
@@ -33,10 +43,12 @@ export default function DronesPage() {
             Manage and monitor your drone fleet
           </p>
         </div>
-        <Button className="gap-2">
-          <Plus className="w-4 h-4" />
-          Add Drone
-        </Button>
+        {isAdmin && (
+          <Button className="gap-2">
+            <Plus className="w-4 h-4" />
+            Add Drone
+          </Button>
+        )}
       </div>
 
       {/* Error State */}
@@ -61,10 +73,12 @@ export default function DronesPage() {
         <div className="flex items-center justify-center py-12 border-2 border-dashed rounded-lg">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">No drones found</p>
-            <Button className="gap-2">
-              <Plus className="w-4 h-4" />
-              Add your first drone
-            </Button>
+            {isAdmin && (
+              <Button className="gap-2">
+                <Plus className="w-4 h-4" />
+                Add your first drone
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -76,7 +90,9 @@ export default function DronesPage() {
             <DroneCard
               key={drone.drone_id}
               drone={drone}
-              onDelete={handleDelete}
+              onEdit={isAdmin ? () => console.log("Edit drone:", drone) : undefined}
+              onDelete={isAdmin ? handleDelete : undefined}
+              onViewDetail={handleViewDetail}
             />
           ))}
         </div>

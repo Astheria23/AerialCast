@@ -3,16 +3,19 @@
 import { Drone } from "@/types/drones.types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Trash2, Edit } from "lucide-react"
+import { Trash2, Edit, Eye } from "lucide-react"
 import { format } from "date-fns"
+import { useAuth } from "@/hooks/auth.hooks"
 
 interface DroneCardProps {
   drone: Drone
   onEdit?: (drone: Drone) => void
   onDelete?: (droneId: string) => void
+  onViewDetail?: (drone: Drone) => void
 }
 
-export function DroneCard({ drone, onEdit, onDelete }: DroneCardProps) {
+export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardProps) {
+  const { isAdmin, isPilot } = useAuth()
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       <CardHeader className="pb-3">
@@ -47,7 +50,7 @@ export function DroneCard({ drone, onEdit, onDelete }: DroneCardProps) {
         </div>
       </CardContent>
       <div className="px-6 py-3 bg-muted/50 flex gap-2 justify-end">
-        {onEdit && (
+        {isAdmin && onEdit && (
           <Button
             size="sm"
             variant="outline"
@@ -58,7 +61,7 @@ export function DroneCard({ drone, onEdit, onDelete }: DroneCardProps) {
             Edit
           </Button>
         )}
-        {onDelete && (
+        {isAdmin && onDelete && (
           <Button
             size="sm"
             variant="destructive"
@@ -67,6 +70,17 @@ export function DroneCard({ drone, onEdit, onDelete }: DroneCardProps) {
           >
             <Trash2 className="w-4 h-4" />
             Delete
+          </Button>
+        )}
+        {isPilot && onViewDetail && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onViewDetail(drone)}
+            className="gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            See Detail
           </Button>
         )}
       </div>
