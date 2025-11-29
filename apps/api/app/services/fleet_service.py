@@ -1,10 +1,12 @@
 from ..extensions import db
-from ..models.master import Drone
+from ..models.master import Drone, DroneSpecs
 
 class FleetService:
 
     @staticmethod
     def create_drone(data):
+        specs_data = data.pop('specs', None)
+
         if Drone.query.filter_by(lora_id=data['lora_id']).first():
             return {"error": "LoRa ID already registered"}, 409
         
@@ -12,6 +14,27 @@ class FleetService:
 
         try:
             db.session.add(new_drone)
+            db.flush()
+
+            if specs_data:
+                allowed_keys = {
+                    "flight_controller",
+                    "motor",
+                    "esc",
+                    "propeller",
+                    "battery",
+                    "gps_module",
+                    "weight_g",
+                    "max_flight_time_min",
+                    "additional_info",
+                    "image_url",
+                }
+                clean_specs = {k: v for k, v in specs_data.items() if k in allowed_keys}
+
+                new_specs = DroneSpecs(**clean_specs)
+                new_specs.drone_id = new_drone.drone_id
+                db.session.add(new_specs)
+            
             db.session.commit()
             return new_drone,201
         
