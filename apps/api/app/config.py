@@ -7,4 +7,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATION = False
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'secret_jwt')
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=12)
+    SUPABASE_URL = os.getenv('SUPABASE_URL')
+    SUPABASE_KEY = os.getenv('SUPPABASE_KEY')
+    SUPABASE_STORAGE_BUCKET = os.getenv('SUPABASE_STORAGE_BUCKET', 'drone-image')
+    
     

@@ -3,7 +3,7 @@ from datetime import datetime
 import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import String, ForeignKey, DateTime, Float, SmallInteger, Enum
+from sqlalchemy import String, ForeignKey, DateTime, Float, SmallInteger, Enum, Integer, Text
 from typing import List, Optional, TYPE_CHECKING
 from .enums import UserRole, DroneStatus, GeofenceType, ChecklistType
 
@@ -69,6 +69,27 @@ class Drone(db.Model):
         back_populates="drone"
     )
     missions: Mapped[List["Mission"]] = relationship(back_populates="drone")
+
+    specs = db.relationship('DroneSpecs', backref='drone',uselist=False, cascade="all, delete-orphan")
+
+class DroneSpecs(db.Model):
+    __tablename__ = 'drone_specs'
+    
+    spec_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    drone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("drones.drone_id"), unique=True)
+    
+    flight_controller: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    motor: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    esc: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    propeller: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    battery: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    gps_module: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    
+    weight_g: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    max_flight_time_min: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    
+    additional_info: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    image_url: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
 
 class Geofence(db.Model):

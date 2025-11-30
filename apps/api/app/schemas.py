@@ -43,6 +43,18 @@ class UserResponseSchema(Schema):
     role = fields.String()
     created_at = fields.DateTime()
 
+class DroneSpecsSchema(Schema):
+    flight_controller = fields.String()
+    motor = fields.String()
+    esc = fields.String()
+    propeller = fields.String()
+    battery = fields.String()
+    gps_module = fields.String()
+    weight_g = fields.Integer()
+    max_flight_time_min = fields.Integer()
+    additional_info = fields.String()
+    image_url = fields.String()
+
 class DroneSchema(Schema):
     drone_id = fields.UUID(dump_only=True)
     name = fields.String(required=True)
@@ -53,6 +65,8 @@ class DroneSchema(Schema):
 
     def _dump_status(self, obj):
         return obj.status.value if getattr(obj, 'status', None) else None
+    
+    specs = fields.Nested(DroneSpecsSchema, dump_default={})
 
 class MissionUpdateSchema(Schema):
     mission_name = fields.String()
@@ -151,3 +165,4 @@ class GeofenceUpdateSchema(Schema):
     area_name = fields.String()
     type = fields.String(validate=validate.OneOf([e.name for e in GeofenceType]))
     points = fields.List(fields.Nested(GeofencePointSchema))
+
