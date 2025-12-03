@@ -4,19 +4,23 @@ from flask_jwt_extended import create_access_token
 from passlib.hash import pbkdf2_sha256
 from sqlalchemy.exc import IntegrityError
 
-from ..extensions import db
 from ..models.master import User
+from ..repositories import UserRepository
 
 
 class AuthService:
-    @staticmethod
-    def register_user(data: dict):
+    user_repository = UserRepository
+
+    @classmethod
+    def register_user(cls, data: dict):
         email = data["email"]
         password = data["password"]
         full_name = data["full_name"]
         role = data.get("role", "PILOT")
 
-        if User.query.filter_by(email=email).first():
+        repo = cls.user_repository
+
+        if repo.find_by_email(email):
             return {"error": "Email already registered"}, 409
 
         password_hash = pbkdf2_sha256.hash(password)
@@ -28,8 +32,8 @@ class AuthService:
         new_user.role = role
 
         try:
-            db.session.add(new_user)
-            db.session.commit()
+            repo.add(new_user)
+            repo.commit()
             access_token = create_access_token(
                 identity=str(new_user.user_id), additional_claims={"role": role}
             )
@@ -40,15 +44,15 @@ class AuthService:
                 "access_token": access_token,
             }, 201
         except IntegrityError:
-            db.session.rollback()
+            repo.rollback()
             return {"error": "Database integrity error"}, 500
 
-    @staticmethod
-    def login_user(data: dict):
+    @classmethod
+    def login_user(cls, data: dict):
         email = data["email"]
         password = data["password"]
 
-        user = User.query.filter_by(email=email).first()
+        user = cls.user_repository.find_by_email(email)
 
         if user and pbkdf2_sha256.verify(password, user.password_hash):
             access_token = create_access_token(

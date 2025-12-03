@@ -1,11 +1,12 @@
 """Checklist template management routes."""
 
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from flask_jwt_extended import jwt_required
 
 from ...schemas import ChecklistSchema, ChecklistUpdateSchema
 from ...services.checklist_service import ChecklistService
+from ..utils import abort_with_payload
 
 
 blp = Blueprint(
@@ -33,8 +34,7 @@ class ChecklistList(MethodView):
 
 		result, status = ChecklistService.create_checklist(checklist_data)
 		if status != 201:
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
+			abort_with_payload(status, result)
 		return result
 
 
@@ -53,7 +53,7 @@ class ChecklistDetail(MethodView):
 
 		result, status = ChecklistService.delete_checklist(checklist_id)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 	@jwt_required()
@@ -64,7 +64,7 @@ class ChecklistDetail(MethodView):
 
 		result, status = ChecklistService.update_checklist(checklist_id, checklist_data)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 

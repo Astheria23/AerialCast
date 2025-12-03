@@ -96,9 +96,16 @@ def run_mqtt_listener():  # pragma: no cover
             time.sleep(5)
 
 
-if __name__ == "__main__":  # pragma: no cover
+def main():  # pragma: no cover
     print(
         "Using DB URL:",
         os.getenv("DATABASE_URL") or os.getenv("SQLALCHEMY_DATABASE_URI"),
     )
     run_mqtt_listener()
+
+
+if __name__ == "__main__":  # pragma: no cover
+    main()
+
+
+__all__ = ["run_mqtt_listener", "main"]

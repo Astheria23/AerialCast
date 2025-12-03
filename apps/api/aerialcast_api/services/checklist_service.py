@@ -1,10 +1,11 @@
 """Checklist CRUD operations and validation helpers."""
 
+from flask_smorest import abort
 from sqlalchemy.exc import IntegrityError
 
-from ..extensions import db
 from ..models.enums import ChecklistType
 from ..models.master import Checklist, ChecklistItem
+from ..repositories import ChecklistRepository
 
 
 def _parse_checklist_type(value):
@@ -24,8 +25,17 @@ def _parse_checklist_type(value):
 
 
 class ChecklistService:
-    @staticmethod
-    def create_checklist(data: dict):
+    checklist_repository = ChecklistRepository
+
+    @classmethod
+    def _get_or_404(cls, checklist_id):
+        checklist = cls.checklist_repository.find_by_id(checklist_id)
+        if checklist is None:
+            abort(404, message="Checklist not found")
+        return checklist
+
+    @classmethod
+    def create_checklist(cls, data: dict):
         title = data.get("title")
         if not title or not isinstance(title, str):
             return {"error": "title must be a non-empty string"}, 400
@@ -69,42 +79,46 @@ class ChecklistService:
             new_item.order = order
             new_checklist.items.append(new_item)
 
+        repo = cls.checklist_repository
+
         try:
-            db.session.add(new_checklist)
-            db.session.commit()
+            repo.add(new_checklist)
+            repo.commit()
             return new_checklist, 201
         except IntegrityError as err:
-            db.session.rollback()
+            repo.rollback()
             return {
                 "error": "Integrity error: possible constraint violation or duplicate",
                 "detail": str(err),
             }, 400
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def get_all_checklists():
-        return Checklist.query.all()
+    @classmethod
+    def get_all_checklists(cls):
+        return cls.checklist_repository.list_all()
 
-    @staticmethod
-    def get_checklist_by_id(checklist_id):
-        return Checklist.query.get_or_404(checklist_id)
+    @classmethod
+    def get_checklist_by_id(cls, checklist_id):
+        return cls._get_or_404(checklist_id)
 
-    @staticmethod
-    def delete_checklist(checklist_id):
-        checklist = Checklist.query.get_or_404(checklist_id)
+    @classmethod
+    def delete_checklist(cls, checklist_id):
+        checklist = cls._get_or_404(checklist_id)
+        repo = cls.checklist_repository
         try:
-            db.session.delete(checklist)
-            db.session.commit()
+            repo.delete(checklist)
+            repo.commit()
             return {"message": "Checklist deleted"}, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def update_checklist(checklist_id, data: dict):
-        checklist = Checklist.query.get_or_404(checklist_id)
+    @classmethod
+    def update_checklist(cls, checklist_id, data: dict):
+        checklist = cls._get_or_404(checklist_id)
+        repo = cls.checklist_repository
 
         if "title" in data:
             title = data.get("title")
@@ -155,16 +169,16 @@ class ChecklistService:
                     checklist.items.append(new_item)
 
         try:
-            db.session.commit()
+            repo.commit()
             return checklist, 200
         except IntegrityError as err:
-            db.session.rollback()
+            repo.rollback()
             return {
                 "error": "Integrity error during update",
                 "detail": str(err),
             }, 400
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
 

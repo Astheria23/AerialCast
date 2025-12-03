@@ -1,15 +1,53 @@
 """Mission domain services."""
 
-from ..extensions import db
+from flask_smorest import abort
+
 from ..models.enums import MissionStatus, UserRole
-from ..models.master import Checklist, Drone, User
 from ..models.planning import Mission, MissionWaypoint
+from ..repositories import (
+	ChecklistRepository,
+	DroneRepository,
+	MissionRepository,
+	UserRepository,
+)
 
 
 class MissionService:
-    @staticmethod
-    def create_mission(data: dict, user_id):
-        drone = Drone.query.get(data["drone_id"])
+    mission_repository = MissionRepository
+    drone_repository = DroneRepository
+    checklist_repository = ChecklistRepository
+    user_repository = UserRepository
+
+    @classmethod
+    def _get_mission_or_404(cls, mission_id):
+        mission = cls.mission_repository.find_by_id(mission_id)
+        if mission is None:
+            abort(404, message="Mission not found")
+        return mission
+
+    @classmethod
+    def _resolve_checklists(cls, checklist_ids):
+        if checklist_ids is not None and not isinstance(checklist_ids, list):
+            return [], {"error": "checklist_ids harus berupa list UUID"}, 400
+        checklist_ids = checklist_ids or []
+        if len(checklist_ids) != len(set(checklist_ids)):
+            return [], {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
+        if not checklist_ids:
+            return [], None, None
+
+        found = list(cls.checklist_repository.find_by_ids(checklist_ids))
+        found_ids = {checklist.checklist_id for checklist in found}
+        missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
+        if missing:
+            return [], {
+                "error": "Checklist tidak ditemukan",
+                "missing_ids": missing,
+            }, 400
+        return found, None, None
+
+    @classmethod
+    def create_mission(cls, data: dict, user_id):
+        drone = cls.drone_repository.get(data["drone_id"])
 
         if not drone:
             return {"error": "Drone not found"}, 404
@@ -39,49 +77,41 @@ class MissionService:
             new_mission.waypoints.append(new_wp)
 
         checklist_ids = data.get("checklist_ids", [])
-        if checklist_ids is not None:
-            if not isinstance(checklist_ids, list):
-                return {"error": "checklist_ids harus berupa list UUID"}, 400
-            if len(checklist_ids) != len(set(checklist_ids)):
-                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
-            if checklist_ids:
-                found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
-                found_ids = {c.checklist_id for c in found}
-                missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
-                if missing:
-                    return {
-                        "error": "Checklist tidak ditemukan",
-                        "missing_ids": missing,
-                    }, 400
-                for checklist in found:
-                    new_mission.required_checklists.append(checklist)
+        resolved_checklists, error_payload, error_status = cls._resolve_checklists(checklist_ids)
+        if error_payload:
+            return error_payload, error_status
+        for checklist in resolved_checklists:
+            new_mission.required_checklists.append(checklist)
+
+        repo = cls.mission_repository
 
         try:
-            db.session.add(new_mission)
-            db.session.commit()
+            repo.add(new_mission)
+            repo.commit()
             return new_mission, 201
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def get_all_missions():
-        return Mission.query.all()
+    @classmethod
+    def get_all_missions(cls):
+        return cls.mission_repository.list_all()
 
-    @staticmethod
-    def get_mission_by_id(mission_id):
-        return Mission.query.get_or_404(mission_id)
+    @classmethod
+    def get_mission_by_id(cls, mission_id):
+        return cls._get_mission_or_404(mission_id)
 
-    @staticmethod
-    def update_mission(mission_id, data: dict, user_id):
-        mission = Mission.query.get_or_404(mission_id)
+    @classmethod
+    def update_mission(cls, mission_id, data: dict, user_id):
+        mission = cls._get_mission_or_404(mission_id)
+        repo = cls.mission_repository
 
         if "mission_name" in data:
             mission.mission_name = data["mission_name"]
         if "notes" in data:
             mission.notes = data["notes"]
         if "drone_id" in data:
-            drone = Drone.query.get(data["drone_id"])
+            drone = cls.drone_repository.get(data["drone_id"])
             if not drone:
                 return {"error": "Drone not found"}, 404
             mission.drone_id = data["drone_id"]
@@ -107,34 +137,24 @@ class MissionService:
                 mission.waypoints.append(new_wp)
 
         if "checklist_ids" in data:
-            checklist_ids = data.get("checklist_ids") or []
-            if not isinstance(checklist_ids, list):
-                return {"error": "checklist_ids harus berupa list UUID"}, 400
-            if len(checklist_ids) != len(set(checklist_ids)):
-                return {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
+            checklist_ids = data.get("checklist_ids")
+            resolved_checklists, error_payload, error_status = cls._resolve_checklists(checklist_ids)
+            if error_payload:
+                return error_payload, error_status
             mission.required_checklists.clear()
-            if checklist_ids:
-                found = Checklist.query.filter(Checklist.checklist_id.in_(checklist_ids)).all()
-                found_ids = {c.checklist_id for c in found}
-                missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
-                if missing:
-                    return {
-                        "error": "Checklist tidak ditemukan",
-                        "missing_ids": missing,
-                    }, 400
-                for checklist in found:
-                    mission.required_checklists.append(checklist)
+            for checklist in resolved_checklists:
+                mission.required_checklists.append(checklist)
         try:
-            db.session.commit()
+            repo.commit()
             return mission, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def change_status(mission_id, action: str, user_id):
-        mission = Mission.query.get_or_404(mission_id)
-        user = User.query.get(user_id)
+    @classmethod
+    def change_status(cls, mission_id, action: str, user_id):
+        mission = cls._get_mission_or_404(mission_id)
+        user = cls.user_repository.get(user_id)
 
         if not user or user.role != UserRole.ADMIN:
             return {"error": "Only ADMIN can change mission status"}, 403
@@ -177,21 +197,21 @@ class MissionService:
 
         mission.status = target
         try:
-            db.session.commit()
+            cls.mission_repository.commit()
             return mission, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            cls.mission_repository.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def delete_mission(mission_id):
-        mission = Mission.query.get_or_404(mission_id)
+    @classmethod
+    def delete_mission(cls, mission_id):
+        mission = cls._get_mission_or_404(mission_id)
         try:
-            db.session.delete(mission)
-            db.session.commit()
+            cls.mission_repository.delete(mission)
+            cls.mission_repository.commit()
             return {"message": "Mission deleted successfully"}, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            cls.mission_repository.rollback()
             return {"error": str(exc)}, 500
 
 

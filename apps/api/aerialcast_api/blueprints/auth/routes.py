@@ -1,10 +1,11 @@
 """Authentication routes."""
 
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 
 from ...schemas import UserLoginSchema, UserRegisterSchema
 from ...services.auth_service import AuthService
+from ..utils import abort_with_payload
 
 
 blp = Blueprint(
@@ -22,7 +23,7 @@ class UserRegister(MethodView):
 		result, status_code = AuthService.register_user(user_data)
 
 		if status_code != 201:
-			abort(status_code, message=result.get("error"))
+			abort_with_payload(status_code, result)
 
 		return result, status_code
 
@@ -34,7 +35,7 @@ class UserLogin(MethodView):
 		result, status_code = AuthService.login_user(user_data)
 
 		if status_code != 200:
-			abort(status_code, message=result.get("error"))
+			abort_with_payload(status_code, result)
 
 		return result, status_code
 

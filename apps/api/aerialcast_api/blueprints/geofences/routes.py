@@ -1,11 +1,12 @@
 """Geofence management routes."""
 
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from flask_jwt_extended import jwt_required
 
 from ...schemas import GeofenceSchema, GeofenceUpdateSchema
 from ...services.geofence_service import GeofenceService
+from ..utils import abort_with_payload
 
 
 blp = Blueprint(
@@ -33,7 +34,7 @@ class GeofenceList(MethodView):
 
 		result, status = GeofenceService.create_geofence(geofence_data)
 		if status not in (200, 201):
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 
@@ -52,7 +53,7 @@ class GeofenceDetail(MethodView):
 
 		result, status = GeofenceService.delete_geofence(geofence_id)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 	@jwt_required()
@@ -63,7 +64,7 @@ class GeofenceDetail(MethodView):
 
 		result, status = GeofenceService.update_geofence(geofence_id, geofence_data)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 
