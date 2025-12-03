@@ -249,7 +249,7 @@ cp apps/api/env.example apps/api/.env
 ```zsh
 # Ensure you're in apps/api directory for FLASK_APP to resolve
 cd apps/api
-export FLASK_APP=app:create_app
+export FLASK_APP=aerialcast_api:create_app
 flask db upgrade
 ```
 
@@ -257,7 +257,7 @@ flask db upgrade
 
 ```zsh
 # From apps/api directory (or set FLASK_APP accordingly)
-export FLASK_APP=app:create_app
+export FLASK_APP=aerialcast_api:create_app
 flask run --host=0.0.0.0 --port=5000
 # Open http://localhost:5000/docs for Swagger UI
 ```
@@ -268,7 +268,8 @@ If you ingest telemetry via MQTT:
 
 ```zsh
 # In apps/api
-python mqtt_listener.py
+python -m aerialcast_api.tasks.mqtt_listener
+# (Legacy wrapper `python mqtt_listener.py` remains available.)
 ```
 
 Ensure MQTT connection settings are configured in `.env`.
