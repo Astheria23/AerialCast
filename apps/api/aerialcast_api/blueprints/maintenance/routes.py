@@ -1,11 +1,12 @@
 """Maintenance log routes."""
 
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
 from ...schemas import MaintenanceLogSchema
 from ...services.maintenance_service import MaintenanceService
+from ..utils import abort_with_payload
 
 
 blp = Blueprint(
@@ -37,8 +38,7 @@ class DroneMaintenanceList(MethodView):
 		result, status = MaintenanceService.create_log(drone_id, log_data, user_id)
 
 		if status != 201:
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
+			abort_with_payload(status, result)
 		return result
 
 
@@ -57,7 +57,7 @@ class MaintenanceDetail(MethodView):
 
 		result, status = MaintenanceService.update_log(log_id, log_data, user_id, role)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 	@blp.doc(security=[{"BearerAuth": []}])
@@ -71,7 +71,7 @@ class MaintenanceDetail(MethodView):
 
 		result, status = MaintenanceService.delete_log(log_id, user_id, role)
 		if status != 200:
-			abort(status, message=result.get("error"))
+			abort_with_payload(status, result)
 		return result
 
 

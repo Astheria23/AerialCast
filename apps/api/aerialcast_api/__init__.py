@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Iterable
 
 from flask import Flask
@@ -13,7 +14,11 @@ from .config.settings import get_config
 from .extensions import cors, db, jwt, migrate
 
 
-def _register_blueprints(api: Api, blueprints: Iterable):
+PACKAGE_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = PACKAGE_ROOT.parent
+
+
+def _register_blueprints(api: Api, blueprints: Iterable) -> None:
 	for blueprint in blueprints:
 		if blueprint is None:
 			continue
@@ -53,8 +58,10 @@ def create_app(env: str | None = None) -> Flask:
 		},
 	)
 
+	migrations_dir = PROJECT_ROOT / "db" / "migrations"
+
 	db.init_app(app)
-	migrate.init_app(app, db)
+	migrate.init_app(app, db, directory=str(migrations_dir))
 	jwt.init_app(app)
 
 	api = Api(app)

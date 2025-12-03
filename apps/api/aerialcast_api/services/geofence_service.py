@@ -1,10 +1,11 @@
 """Geofence CRUD operations and validation helpers."""
 
+from flask_smorest import abort
 from sqlalchemy.exc import IntegrityError
 
-from ..extensions import db
 from ..models.enums import GeofenceType
 from ..models.master import Geofence, GeofencePoint
+from ..repositories import GeofenceRepository
 
 
 def _parse_geofence_type(value):
@@ -22,8 +23,17 @@ def _parse_geofence_type(value):
 
 
 class GeofenceService:
-    @staticmethod
-    def create_geofence(data: dict):
+    geofence_repository = GeofenceRepository
+
+    @classmethod
+    def _get_or_404(cls, geofence_id):
+        geofence = cls.geofence_repository.find_by_id(geofence_id)
+        if geofence is None:
+            abort(404, message="Geofence not found")
+        return geofence
+
+    @classmethod
+    def create_geofence(cls, data: dict):
         area_name = data.get("area_name")
         if not isinstance(area_name, str) or not area_name.strip():
             return {"error": "area_name must be a non-empty string"}, 400
@@ -72,42 +82,45 @@ class GeofenceService:
             new_point.order = order
             new_geofence.points.append(new_point)
 
+        repo = cls.geofence_repository
+
         try:
-            db.session.add(new_geofence)
-            db.session.commit()
+            repo.add(new_geofence)
+            repo.commit()
             return new_geofence, 201
         except IntegrityError as err:
-            db.session.rollback()
+            repo.rollback()
             return {
                 "error": "Integrity error: possible constraint violation",
                 "detail": str(err),
             }, 400
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def get_all_geofences():
-        return Geofence.query.order_by(Geofence.created_at.desc()).all()
+    @classmethod
+    def get_all_geofences(cls):
+        return cls.geofence_repository.list_all()
 
-    @staticmethod
-    def get_geofence_by_id(geofence_id):
-        return Geofence.query.get_or_404(geofence_id)
+    @classmethod
+    def get_geofence_by_id(cls, geofence_id):
+        return cls._get_or_404(geofence_id)
 
-    @staticmethod
-    def delete_geofence(geofence_id):
-        geofence = Geofence.query.get_or_404(geofence_id)
+    @classmethod
+    def delete_geofence(cls, geofence_id):
+        geofence = cls._get_or_404(geofence_id)
         try:
-            db.session.delete(geofence)
-            db.session.commit()
+            cls.geofence_repository.delete(geofence)
+            cls.geofence_repository.commit()
             return {"message": "Geofence deleted"}, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            cls.geofence_repository.rollback()
             return {"error": str(exc)}, 500
 
-    @staticmethod
-    def update_geofence(geofence_id, data: dict):
-        geofence = Geofence.query.get_or_404(geofence_id)
+    @classmethod
+    def update_geofence(cls, geofence_id, data: dict):
+        geofence = cls._get_or_404(geofence_id)
+        repo = cls.geofence_repository
 
         if "area_name" in data:
             area_name = data.get("area_name")
@@ -145,10 +158,10 @@ class GeofenceService:
                 geofence.points.append(new_point)
 
         try:
-            db.session.commit()
+            repo.commit()
             return geofence, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
-            db.session.rollback()
+            repo.rollback()
             return {"error": str(exc)}, 500
 
 

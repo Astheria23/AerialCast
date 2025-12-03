@@ -1,11 +1,12 @@
 """Drone fleet management routes."""
 
 from flask.views import MethodView
-from flask_smorest import Blueprint, abort
+from flask_smorest import Blueprint
 from flask_jwt_extended import jwt_required
 
 from ...schemas import DroneSchema
 from ...services.fleet_service import FleetService
+from ..utils import abort_with_payload
 
 
 blp = Blueprint(
@@ -29,8 +30,7 @@ class DroneList(MethodView):
 	def post(self, drone_data):
 		result, status = FleetService.create_drone(drone_data)
 		if status != 201:
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
+			abort_with_payload(status, result)
 		return result
 
 
