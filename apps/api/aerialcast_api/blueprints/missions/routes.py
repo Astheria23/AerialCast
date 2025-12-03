@@ -1,19 +1,12 @@
 """Mission planning routes."""
 
 from flask.views import MethodView
-<<<<<<< HEAD
 from flask_smorest import Blueprint
-=======
-from flask_smorest import Blueprint, abort
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...schemas import MissionSchema, MissionUpdateSchema
 from ...services.mission_service import MissionService
-<<<<<<< HEAD
 from ..utils import abort_with_payload
-=======
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 
 
 blp = Blueprint(
@@ -41,12 +34,7 @@ class MissionList(MethodView):
 		result, status = MissionService.create_mission(mission_data, user_id)
 
 		if status != 201:
-<<<<<<< HEAD
 			abort_with_payload(status, result)
-=======
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
@@ -66,12 +54,7 @@ class MissionDetail(MethodView):
 		user_id = get_jwt_identity()
 		result, status = MissionService.update_mission(mission_id, update_data, user_id)
 		if status != 200:
-<<<<<<< HEAD
 			abort_with_payload(status, result)
-=======
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 	@blp.doc(security=[{"BearerAuth": []}])
@@ -80,12 +63,7 @@ class MissionDetail(MethodView):
 	def delete(self, mission_id):
 		result, status = MissionService.delete_mission(mission_id)
 		if status != 200:
-<<<<<<< HEAD
 			abort_with_payload(status, result)
-=======
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
@@ -101,12 +79,7 @@ class MissionStatusAction(MethodView):
 		user_id = get_jwt_identity()
 		result, status = MissionService.change_status(mission_id, action, user_id)
 		if status != 200:
-<<<<<<< HEAD
 			abort_with_payload(status, result)
-=======
-			error = result.get("error") if isinstance(result, dict) else str(result)
-			abort(status, message=error)
->>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
