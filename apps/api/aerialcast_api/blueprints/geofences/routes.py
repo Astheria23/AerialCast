@@ -1,12 +1,19 @@
 """Geofence management routes."""
 
 from flask.views import MethodView
+<<<<<<< HEAD
 from flask_smorest import Blueprint
+=======
+from flask_smorest import Blueprint, abort
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 from flask_jwt_extended import jwt_required
 
 from ...schemas import GeofenceSchema, GeofenceUpdateSchema
 from ...services.geofence_service import GeofenceService
+<<<<<<< HEAD
 from ..utils import abort_with_payload
+=======
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 
 
 blp = Blueprint(
@@ -34,7 +41,11 @@ class GeofenceList(MethodView):
 
 		result, status = GeofenceService.create_geofence(geofence_data)
 		if status not in (200, 201):
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			abort(status, message=result.get("error"))
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
@@ -53,7 +64,11 @@ class GeofenceDetail(MethodView):
 
 		result, status = GeofenceService.delete_geofence(geofence_id)
 		if status != 200:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			abort(status, message=result.get("error"))
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 	@jwt_required()
@@ -64,7 +79,11 @@ class GeofenceDetail(MethodView):
 
 		result, status = GeofenceService.update_geofence(geofence_id, geofence_data)
 		if status != 200:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			abort(status, message=result.get("error"))
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 

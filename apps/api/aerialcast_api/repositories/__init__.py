@@ -21,3 +21,5 @@ __all__ = [
 	"TelemetryRepository",
 	"UserRepository",
 ]
+
+"""Database repository abstractions placeholder."""

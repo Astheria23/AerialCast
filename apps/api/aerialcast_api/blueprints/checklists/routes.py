@@ -1,12 +1,19 @@
 """Checklist template management routes."""
 
 from flask.views import MethodView
+<<<<<<< HEAD
 from flask_smorest import Blueprint
+=======
+from flask_smorest import Blueprint, abort
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 from flask_jwt_extended import jwt_required
 
 from ...schemas import ChecklistSchema, ChecklistUpdateSchema
 from ...services.checklist_service import ChecklistService
+<<<<<<< HEAD
 from ..utils import abort_with_payload
+=======
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 
 
 blp = Blueprint(
@@ -34,7 +41,12 @@ class ChecklistList(MethodView):
 
 		result, status = ChecklistService.create_checklist(checklist_data)
 		if status != 201:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			error = result.get("error") if isinstance(result, dict) else str(result)
+			abort(status, message=error)
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
@@ -53,7 +65,11 @@ class ChecklistDetail(MethodView):
 
 		result, status = ChecklistService.delete_checklist(checklist_id)
 		if status != 200:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			abort(status, message=result.get("error"))
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 	@jwt_required()
@@ -64,7 +80,11 @@ class ChecklistDetail(MethodView):
 
 		result, status = ChecklistService.update_checklist(checklist_id, checklist_data)
 		if status != 200:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			abort(status, message=result.get("error"))
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 

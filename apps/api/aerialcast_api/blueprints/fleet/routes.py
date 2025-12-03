@@ -1,12 +1,19 @@
 """Drone fleet management routes."""
 
 from flask.views import MethodView
+<<<<<<< HEAD
 from flask_smorest import Blueprint
+=======
+from flask_smorest import Blueprint, abort
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 from flask_jwt_extended import jwt_required
 
 from ...schemas import DroneSchema
 from ...services.fleet_service import FleetService
+<<<<<<< HEAD
 from ..utils import abort_with_payload
+=======
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 
 
 blp = Blueprint(
@@ -30,7 +37,12 @@ class DroneList(MethodView):
 	def post(self, drone_data):
 		result, status = FleetService.create_drone(drone_data)
 		if status != 201:
+<<<<<<< HEAD
 			abort_with_payload(status, result)
+=======
+			error = result.get("error") if isinstance(result, dict) else str(result)
+			abort(status, message=error)
+>>>>>>> 75c9208 (feat: AerialCast API refactor and schema definitions)
 		return result
 
 
