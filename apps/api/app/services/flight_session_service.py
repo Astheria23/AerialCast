@@ -2,7 +2,7 @@ from ..extensions import db
 from ..models.execution import FlightSession, TelemetryData
 from ..models.planning import Mission
 from ..models.master import Drone, User
-from ..models.enums import SessionStatus, MissionStatus, UserRole
+from ..models.enums import SessionStatus, MissionStatus, UserRole, DroneStatus
 from datetime import datetime
 
 class FlightSessionService:
@@ -45,6 +45,9 @@ class FlightSessionService:
         if mission:
             mission.status = MissionStatus.IN_PROGRESS
 
+        # Update drone operational status
+        drone.status = DroneStatus.FLYING
+
         try:
             db.session.add(new_session)
             db.session.commit()
@@ -79,7 +82,11 @@ class FlightSessionService:
         
         if session.mission:
              session.mission.status = MissionStatus.COMPLETED
-             
+        
+        # Reset drone status to READY when session ends
+        if session.drone:
+            session.drone.status = DroneStatus.READY
+
         db.session.commit()
         return session
 

@@ -78,7 +78,8 @@ class MissionUpdateSchema(Schema):
 
 
 class TelemetryDataSchema(Schema):
-    telemetry_id = fields.UUID(dump_only=True)
+    time = fields.DateTime(dump_only=True)
+    session_id = fields.UUID(dump_only=True)
     latitude = fields.Float()
     longitude = fields.Float()
     altitude = fields.Float()
@@ -96,9 +97,27 @@ class FlightSessionSchema(Schema):
     drone_id = fields.UUID(dump_only=True)
     pilot_id = fields.UUID(dump_only=True)
 
-    mission_name = fields.String(dump_only=True)
-    drone_name = fields.String(dump_only=True)
-    pilot_name = fields.String(dump_only=True)
+    mission_name = fields.Method("_mission_name", dump_only=True)
+    drone_name = fields.Method("_drone_name", dump_only=True)
+    pilot_name = fields.Method("_pilot_name", dump_only=True)
+
+    def _mission_name(self, obj):
+        try:
+            return obj.mission.mission_name if getattr(obj, 'mission', None) else None
+        except Exception:
+            return None
+
+    def _drone_name(self, obj):
+        try:
+            return obj.drone.name if getattr(obj, 'drone', None) else None
+        except Exception:
+            return None
+
+    def _pilot_name(self, obj):
+        try:
+            return obj.pilot.full_name if getattr(obj, 'pilot', None) else None
+        except Exception:
+            return None
     
 class MaintenanceLogSchema(Schema):
     log_id = fields.UUID(dump_only=True)
@@ -165,4 +184,3 @@ class GeofenceUpdateSchema(Schema):
     area_name = fields.String()
     type = fields.String(validate=validate.OneOf([e.name for e in GeofenceType]))
     points = fields.List(fields.Nested(GeofencePointSchema))
-
