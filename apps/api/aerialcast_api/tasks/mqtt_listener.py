@@ -17,11 +17,13 @@ WORKSPACE_ROOT = CURRENT_FILE.parents[2]
 try:  # pragma: no cover - allow running as script without PYTHONPATH tweaks
     from aerialcast_api import create_app
     from aerialcast_api.services.telemetry_service import TelemetryService
+    from aerialcast_api.sockets import emit_mqtt_status
 except ModuleNotFoundError:  # pragma: no cover - fallback when running directly
     if str(WORKSPACE_ROOT) not in sys.path:
         sys.path.insert(0, str(WORKSPACE_ROOT))
     from aerialcast_api import create_app
     from aerialcast_api.services.telemetry_service import TelemetryService
+    from aerialcast_api.sockets import emit_mqtt_status
 
 
 load_dotenv(dotenv_path=WORKSPACE_ROOT / ".env")
@@ -44,8 +46,22 @@ def on_connect(client, userdata, flags, rc, properties=None):  # pragma: no cove
         print(f"Connected to MQTT Broker: {MQTT_BROKER}")
         client.subscribe(MQTT_TOPIC)
         print(f"Listening on topic: {MQTT_TOPIC}")
+        with app.app_context():
+            emit_mqtt_status(
+                "connected",
+                {
+                    "broker": MQTT_BROKER,
+                    "port": MQTT_PORT,
+                    "topic": MQTT_TOPIC,
+                },
+            )
     else:
         print(f"Connection failed with code {rc}")
+        with app.app_context():
+            emit_mqtt_status(
+                "connection_failed",
+                {"broker": MQTT_BROKER, "port": MQTT_PORT, "code": rc},
+            )
 
 
 def on_message(client, userdata, msg):  # pragma: no cover
@@ -54,12 +70,30 @@ def on_message(client, userdata, msg):  # pragma: no cover
         data = json.loads(payload_str)
 
         with app.app_context():
-            TelemetryService.process_telemetry_data(data)
+            success = TelemetryService.process_telemetry_data(data)
+            if not success:
+                emit_mqtt_status(
+                    "telemetry_error",
+                    {
+                        "reason": "processing_failed",
+                        "lora_id": data.get("lora_id"),
+                    },
+                )
 
     except json.JSONDecodeError:
         print("Error: Invalid JSON format")
+        with app.app_context():
+            emit_mqtt_status(
+                "telemetry_error",
+                {"reason": "invalid_json", "payload": msg.payload.decode("utf-8", "ignore")},
+            )
     except Exception as exc:
         print(f"Error processing message: {exc}")
+        with app.app_context():
+            emit_mqtt_status(
+                "telemetry_error",
+                {"reason": "exception", "detail": str(exc)},
+            )
 
 
 def run_mqtt_listener():  # pragma: no cover
@@ -93,6 +127,11 @@ def run_mqtt_listener():  # pragma: no cover
             client.loop_forever()
         except Exception as exc:
             print(f"MQTT connection error: {exc}. Retrying in 5 seconds...")
+            with app.app_context():
+                emit_mqtt_status(
+                    "connection_lost",
+                    {"broker": MQTT_BROKER, "detail": str(exc)},
+                )
             time.sleep(5)
 
 

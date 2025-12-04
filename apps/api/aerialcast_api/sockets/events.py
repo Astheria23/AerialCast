@@ -115,10 +115,17 @@ def emit_mission_status_changed(mission: Mission) -> None:
     )
 
 
+def emit_mqtt_status(event: str, detail: Mapping[str, Any]) -> None:
+    """Emit MQTT connectivity status updates."""
+
+    _emit("mqtt_status", {"event": event, **detail})
+
+
 __all__ = [
     "emit_session_started",
     "emit_session_resumed",
     "emit_session_ended",
     "emit_telemetry_update",
     "emit_mission_status_changed",
+    "emit_mqtt_status",
 ]

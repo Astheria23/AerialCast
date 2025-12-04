@@ -6,6 +6,7 @@ from .events import (
     emit_session_resumed,
     emit_session_started,
     emit_telemetry_update,
+    emit_mqtt_status,
 )
 
 __all__ = [
@@ -14,4 +15,5 @@ __all__ = [
     "emit_session_ended",
     "emit_telemetry_update",
     "emit_mission_status_changed",
+    "emit_mqtt_status",
 ]
