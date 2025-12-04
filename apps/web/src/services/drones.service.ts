@@ -1,14 +1,13 @@
 import api from '@/lib/axios';
+import { API_ROUTES } from '@/constants/api-routes';
 import { Drone, CreateDronePayload, UpdateDronePayload } from '@/types/drones.types';
-
-const DRONES_ENDPOINT = 'api/v1/drones';
 
 export const dronesService = {
   /**
    * Get all drones
    */
   getDrones: async () => {
-    const response = await api.get<Drone[]>(DRONES_ENDPOINT);
+    const response = await api.get<Drone[]>(API_ROUTES.DRONES);
     return response.data;
   },
 
@@ -16,7 +15,7 @@ export const dronesService = {
    * Get a single drone by ID
    */
   getDroneById: async (droneId: string) => {
-    const response = await api.get<Drone>(`${DRONES_ENDPOINT}/${droneId}`);
+    const response = await api.get<Drone>(`${API_ROUTES.DRONES}/${droneId}`);
     return response.data;
   },
 
@@ -24,7 +23,7 @@ export const dronesService = {
    * Create a new drone
    */
   createDrone: async (payload: CreateDronePayload) => {
-    const response = await api.post<Drone>(DRONES_ENDPOINT, payload);
+    const response = await api.post<Drone>(API_ROUTES.DRONES, payload);
     return response.data;
   },
 
@@ -33,7 +32,7 @@ export const dronesService = {
    */
   updateDrone: async (droneId: string, payload: UpdateDronePayload) => {
     const response = await api.put<Drone>(
-      `${DRONES_ENDPOINT}/${droneId}`,
+      `${API_ROUTES.DRONES}/${droneId}`,
       payload
     );
     return response.data;
@@ -43,6 +42,6 @@ export const dronesService = {
    * Delete a drone
    */
   deleteDrone: async (droneId: string) => {
-    await api.delete(`${DRONES_ENDPOINT}/${droneId}`);
+    await api.delete(`${API_ROUTES.DRONES}/${droneId}`);
   },
 };

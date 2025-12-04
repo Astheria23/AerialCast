@@ -1,11 +1,16 @@
+import { UUID, ISODateTimeString } from './common';
+import { UserRole } from './enums';
+
 export interface User {
-  id: string;
+  user_id: UUID;
   email: string;
   full_name: string;
-  role: 'admin' | 'pilot' | 'viewer';
+  role: UserRole;
+  created_at: ISODateTimeString;
 }
 
 export interface AuthResponse {
+  message?: string;
   access_token: string;
   user: User;
 }
@@ -19,4 +24,5 @@ export interface RegisterCredentials {
   fullName: string;
   email: string;
   password: string;
+  role?: UserRole;
 }

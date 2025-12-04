@@ -1,24 +1,23 @@
-import { useState, useEffect } from 'react';
-import { authService } from '@/services/auth.service';
-import { User } from '@/types/auth.types';
+'use client';
+
+import { useMemo } from 'react';
+
+import { useAuthContext } from '@/context/AuthContext';
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const context = useAuthContext();
 
-  useEffect(() => {
-    const currentUser = authService.getUser();
-    setUser(currentUser);
-    setLoading(false);
-  }, []);
-
-  const isAdmin = user?.role === 'admin';
-  const isPilot = user?.role === 'pilot';
+  const computedFlags = useMemo(
+    () => ({
+      isAdmin: context.user?.role === 'ADMIN',
+      isPilot: context.user?.role === 'PILOT',
+      loading: context.status === 'idle' || context.status === 'loading',
+    }),
+    [context.status, context.user?.role]
+  );
 
   return {
-    user,
-    loading,
-    isAdmin,
-    isPilot,
+    ...context,
+    ...computedFlags,
   };
 };

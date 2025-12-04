@@ -1,10 +1,13 @@
+import { ISODateTimeString, UUID } from './common';
+import { DroneStatus } from './enums';
+
 export interface Drone {
-  drone_id: string;
+  drone_id: UUID;
   name: string;
   model: string;
   lora_id: string;
-  status: string | null;
-  created_at: string;
+  status: DroneStatus;
+  created_at: ISODateTimeString;
 }
 
 export interface CreateDronePayload {
@@ -17,10 +20,5 @@ export interface UpdateDronePayload {
   name?: string;
   model?: string;
   lora_id?: string;
-  status?: string | null;
-}
-
-export interface DronesResponse {
-  drones: Drone[];
-  total: number;
+  status?: DroneStatus;
 }
