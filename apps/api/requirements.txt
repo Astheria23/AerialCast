@@ -14,6 +14,7 @@ flask-cors==6.0.1
 Flask-JWT-Extended==4.7.1
 Flask-Migrate==4.1.0
 flask-smorest==0.46.2
+Flask-SocketIO==5.5.1
 Flask-SQLAlchemy==3.1.1
 greenlet==3.2.4
 h11==0.16.0
@@ -44,6 +45,7 @@ python-dotenv==1.2.1
 python-engineio==4.12.3
 python-socketio==5.15.0
 realtime==2.24.0
+redis==7.1.0
 shapely==2.1.2
 simple-websocket==1.1.0
 SQLAlchemy==2.0.44
