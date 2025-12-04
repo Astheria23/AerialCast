@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>AerialCast Socket.IO Harness</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1a1a1a; background: #f4f4f4; }
+    body { margin: 0; padding: 1.5rem; }
+    h1 { margin-top: 0; font-size: 1.6rem; }
+    main { max-width: 960px; margin: 0 auto; background: #fff; border-radius: 8px; padding: 1.5rem; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
+    section { margin-bottom: 1.75rem; }
+    fieldset { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin-bottom: 1rem; }
+    legend { padding: 0 0.5rem; font-weight: 600; }
+    .field { display: flex; flex-direction: column; margin-bottom: 0.75rem; }
+    label { margin-bottom: 0.25rem; font-weight: 600; }
+    input, textarea, select { font: inherit; padding: 0.4rem 0.5rem; border-radius: 4px; border: 1px solid #ccc; }
+    textarea { resize: vertical; min-height: 4.5rem; }
+    button { font: inherit; padding: 0.5rem 0.9rem; border-radius: 4px; border: 1px solid transparent; cursor: pointer; background: #0059b2; color: #fff; }
+    button:disabled { background: #9dbbe0; cursor: not-allowed; }
+    button.secondary { background: #fff; border-color: #0059b2; color: #0059b2; }
+    button.link { background: transparent; color: #444; border: none; text-decoration: underline; padding: 0; }
+    .row { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+    .row .field { flex: 1 1 220px; }
+    ul { list-style: none; padding-left: 0; margin: 0.5rem 0 0; }
+    ul li { padding: 0.15rem 0; display: flex; align-items: center; gap: 0.5rem; }
+    pre { background: #f7f7f7; padding: 0.5rem; border-radius: 4px; overflow: auto; font-size: 0.9rem; }
+  #logOutput { background: #000; color: #d4f0ff; padding: 0.75rem; border-radius: 6px; min-height: 200px; max-height: 340px; overflow-y: auto; font-family: "JetBrains Mono", "Courier New", monospace; font-size: 0.85rem; }
+  .log-entry { margin-bottom: 0.6rem; padding: 0.35rem 0.4rem; border-radius: 4px; background: #000; border: 1px solid #1a1a1a; }
+  .log-entry .meta { color: #8aa7c7; background: transparent; }
+  .log-entry .payload { margin-top: 0.35rem; background: #0f0f0f; border-radius: 4px; padding: 0.35rem 0.4rem; color: #d4f0ff; }
+    #statusIndicator { font-weight: 600; color: #b23a1a; }
+    #statusIndicator.connected { color: #1c7c3a; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>AerialCast Telemetry Socket Console</h1>
+    <p>Purpose-built harness for the AerialCast telemetry namespace. Provide a valid access token, click Connect, and use the quick actions for the events we emit in production.</p>
+
+    <section>
+      <fieldset>
+        <legend>Connection</legend>
+        <p style="margin-top:0;">Target: <code id="configSummary"></code></p>
+        <div class="row">
+          <div class="field">
+            <label for="token">JWT Access Token</label>
+            <input id="token" type="text" placeholder="Paste access token here">
+          </div>
+          <div class="field">
+            <label for="rememberToken">Remember token on this device</label>
+            <select id="rememberToken">
+              <option value="on" selected>Yes</option>
+              <option value="off">No</option>
+            </select>
+          </div>
+        </div>
+        <div class="row">
+          <button id="connectBtn" type="button">Connect</button>
+          <button id="disconnectBtn" type="button" class="secondary" disabled>Disconnect</button>
+          <div id="statusWrapper" style="align-self:center;">
+            Status: <span id="statusIndicator">disconnected</span>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+
+    <section>
+      <fieldset>
+        <legend>Listeners</legend>
+        <p>Core events attach automatically. Add extras using the input below if needed.</p>
+        <div class="row">
+          <div class="field">
+            <label for="listenerName">Add custom event</label>
+            <input id="listenerName" type="text" placeholder="custom_event">
+          </div>
+          <div class="field" style="align-self:flex-end;">
+            <button id="addListenerBtn" type="button">Add listener</button>
+          </div>
+        </div>
+        <p>Active listeners:</p>
+        <ul id="listenerList"></ul>
+      </fieldset>
+    </section>
+
+    <section>
+      <fieldset>
+        <legend>Quick actions</legend>
+        <div class="row">
+          <div class="field">
+            <label for="sessionId">Session ID for join/leave</label>
+            <input id="sessionId" type="text" placeholder="UUID or numeric ID">
+          </div>
+          <div class="field" style="align-self:flex-end;">
+            <button id="joinSessionBtn" type="button">Join session room</button>
+          </div>
+          <div class="field" style="align-self:flex-end;">
+            <button id="leaveSessionBtn" type="button" class="secondary">Leave session room</button>
+          </div>
+        </div>
+      </fieldset>
+    </section>
+
+    <section>
+      <fieldset>
+        <legend>Log</legend>
+        <div id="logOutput" aria-live="polite"></div>
+        <div style="margin-top:0.5rem; display:flex; gap:0.5rem;">
+          <button id="clearLogBtn" type="button" class="secondary">Clear log</button>
+          <button id="copyLogBtn" type="button" class="secondary">Copy log</button>
+        </div>
+      </fieldset>
+    </section>
+  </main>
+
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js" integrity="sha384-2huaZvOR9iDzHqslqwpR87isEmrfxqyWOF7hr7BY6KG0+hVKLoEXMPUJw3ynWuhO" crossorigin="anonymous"></script>
+  <script>
+    (function () {
+      const state = {
+        socket: null,
+        listeners: new Map(),
+        logBuffer: []
+      };
+
+      const SETTINGS = {
+        baseUrl: "http://localhost:5000",
+        namespace: "/telemetry",
+        path: "/socket.io",
+        transports: ["websocket"],
+        coreListeners: [
+          "connect",
+          "disconnect",
+          "connect_error",
+          "session_started",
+          "session_resumed",
+          "session_ended",
+          "telemetry_update",
+          "mission_status_changed",
+          "mqtt_status",
+          "join_session_error",
+          "leave_session_error",
+          "joined_session",
+          "left_session"
+        ]
+      };
+
+      const configSummary = document.getElementById("configSummary");
+      const tokenInput = document.getElementById("token");
+      const rememberTokenInput = document.getElementById("rememberToken");
+      const connectBtn = document.getElementById("connectBtn");
+      const disconnectBtn = document.getElementById("disconnectBtn");
+      const statusIndicator = document.getElementById("statusIndicator");
+      const listenerNameInput = document.getElementById("listenerName");
+      const listenerList = document.getElementById("listenerList");
+      const addListenerBtn = document.getElementById("addListenerBtn");
+      const sessionIdInput = document.getElementById("sessionId");
+      const joinSessionBtn = document.getElementById("joinSessionBtn");
+      const leaveSessionBtn = document.getElementById("leaveSessionBtn");
+      const logOutput = document.getElementById("logOutput");
+      const clearLogBtn = document.getElementById("clearLogBtn");
+      const copyLogBtn = document.getElementById("copyLogBtn");
+
+      function applyQueryOverrides() {
+        const params = new URLSearchParams(window.location.search);
+        if (params.has("base")) {
+          SETTINGS.baseUrl = params.get("base");
+        }
+        if (params.has("namespace")) {
+          SETTINGS.namespace = params.get("namespace");
+        }
+        if (params.has("path")) {
+          SETTINGS.path = params.get("path");
+        }
+      }
+
+      function appendLog(message, data) {
+        const timestamp = new Date().toISOString();
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = `[${timestamp}] ${message}`;
+        entry.appendChild(meta);
+        if (data !== undefined) {
+          const payload = document.createElement("pre");
+          payload.className = "payload";
+          try {
+            if (typeof data === "string") {
+              payload.textContent = data;
+            } else {
+              payload.textContent = JSON.stringify(data, null, 2);
+            }
+          } catch (err) {
+            payload.textContent = String(data);
+          }
+          entry.appendChild(payload);
+        }
+        logOutput.appendChild(entry);
+        logOutput.scrollTop = logOutput.scrollHeight;
+        const bufferLine = data === undefined ? meta.textContent : `${meta.textContent}\n${entry.textContent}`;
+        state.logBuffer.push(bufferLine);
+      }
+
+      function setStatus(text, connected) {
+        statusIndicator.textContent = text;
+        statusIndicator.classList.toggle("connected", Boolean(connected));
+      }
+
+      function resetListenersList() {
+        listenerList.innerHTML = "";
+        state.listeners.forEach((offFn, eventName) => {
+          const item = document.createElement("li");
+          const label = document.createElement("span");
+          label.textContent = eventName;
+          const removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className = "link";
+          removeBtn.textContent = "Remove";
+          removeBtn.addEventListener("click", function () {
+            if (state.socket) {
+              state.socket.off(eventName, offFn);
+            }
+            state.listeners.delete(eventName);
+            resetListenersList();
+            appendLog(`Removed listener`, eventName);
+          });
+          item.appendChild(label);
+          item.appendChild(removeBtn);
+          listenerList.appendChild(item);
+        });
+      }
+
+      function ensureConnectedSocket() {
+        if (!state.socket) {
+          appendLog("No active socket. Connect first.");
+          return false;
+        }
+        if (!state.socket.connected) {
+          appendLog("Socket not connected. Waiting for connection...");
+        }
+        return true;
+      }
+
+      function connect() {
+        if (state.socket) {
+          state.socket.disconnect();
+          state.socket = null;
+        }
+
+        const baseUrl = SETTINGS.baseUrl;
+        const namespace = SETTINGS.namespace;
+        const token = tokenInput.value.trim();
+        if (!token) {
+          appendLog("Access token is required for telemetry namespace.");
+          return;
+        }
+        const url = namespace && namespace !== "/" ? `${baseUrl}${namespace}` : baseUrl;
+        const options = {
+          transports: SETTINGS.transports,
+          autoConnect: false
+        };
+        options.auth = { token: token };
+        options.query = Object.assign({}, options.query, { token: token });
+        if (SETTINGS.path) {
+          options.path = SETTINGS.path;
+        }
+
+        const socket = io(url, options);
+        state.socket = socket;
+
+        socket.on("connect", function () {
+          appendLog("Connected", { id: socket.id, url: url });
+          setStatus("connected", true);
+          disconnectBtn.disabled = false;
+          connectBtn.disabled = true;
+        });
+
+        socket.on("disconnect", function (reason) {
+          appendLog("Disconnected", { reason: reason });
+          setStatus("disconnected", false);
+          disconnectBtn.disabled = true;
+          connectBtn.disabled = false;
+        });
+
+        socket.on("connect_error", function (err) {
+          appendLog("Connection error", { message: err.message, data: err.data });
+        });
+
+        socket.on("error", function (err) {
+          appendLog("Socket error", err);
+        });
+
+        socket.io.on("reconnect_attempt", function (attempt) {
+          appendLog("Reconnect attempt", attempt);
+        });
+
+        socket.io.on("reconnect", function (attempt) {
+          appendLog("Reconnected", attempt);
+        });
+
+        socket.io.on("reconnect_error", function (err) {
+          appendLog("Reconnect error", { message: err.message });
+        });
+
+        state.listeners.forEach(function (handler, eventName) {
+          socket.on(eventName, handler);
+        });
+
+        appendLog("Connecting...", { url: url });
+        setStatus("connecting", false);
+        disconnectBtn.disabled = false;
+        connectBtn.disabled = true;
+        socket.connect();
+      }
+
+      function disconnect() {
+        if (!state.socket) {
+          appendLog("No active socket to disconnect.");
+          return;
+        }
+        state.socket.disconnect();
+        state.socket = null;
+        setStatus("disconnected", false);
+        disconnectBtn.disabled = true;
+        connectBtn.disabled = false;
+        appendLog("Manual disconnect");
+      }
+
+      function addListener() {
+        const eventName = listenerNameInput.value.trim();
+        if (!eventName) {
+          appendLog("Listener event name is required.");
+          return;
+        }
+        if (state.listeners.has(eventName)) {
+          appendLog("Listener already registered", eventName);
+          return;
+        }
+        const handler = function () {
+          const args = Array.prototype.slice.call(arguments);
+          appendLog(`Event: ${eventName}`, args.length === 1 ? args[0] : args);
+        };
+        state.listeners.set(eventName, handler);
+        resetListenersList();
+        if (state.socket) {
+          state.socket.on(eventName, handler);
+        }
+        appendLog("Listener registered", eventName);
+        listenerNameInput.value = "";
+      }
+
+      function clearLog() {
+        logOutput.innerHTML = "";
+        state.logBuffer = [];
+      }
+
+      function copyLog() {
+        const text = state.logBuffer.join("\n\n");
+        navigator.clipboard.writeText(text).then(function () {
+          appendLog("Copied log to clipboard");
+        }).catch(function (err) {
+          appendLog("Failed to copy log", err.message);
+        });
+      }
+
+      function joinSession() {
+        if (!ensureConnectedSocket()) {
+          return;
+        }
+        const sessionId = sessionIdInput.value.trim();
+        if (!sessionId) {
+          appendLog("Session ID required to join room.");
+          return;
+        }
+        state.socket.emit("join_session", { session_id: sessionId });
+        appendLog("join_session emitted", { session_id: sessionId });
+      }
+
+      function leaveSession() {
+        if (!ensureConnectedSocket()) {
+          return;
+        }
+        const sessionId = sessionIdInput.value.trim();
+        if (!sessionId) {
+          appendLog("Session ID required to leave room.");
+          return;
+        }
+        state.socket.emit("leave_session", { session_id: sessionId });
+        appendLog("leave_session emitted", { session_id: sessionId });
+      }
+
+      function bootstrapCoreListeners() {
+        SETTINGS.coreListeners.forEach(function (eventName) {
+          if (state.listeners.has(eventName)) {
+            return;
+          }
+          const handler = function () {
+            const args = Array.prototype.slice.call(arguments);
+            appendLog(`Event: ${eventName}`, args.length === 1 ? args[0] : args);
+          };
+          state.listeners.set(eventName, handler);
+        });
+        resetListenersList();
+      }
+
+      function hydrateToken() {
+        const stored = window.localStorage.getItem("aerialcast.socket.token");
+        if (stored) {
+          tokenInput.value = stored;
+        }
+      }
+
+      function persistTokenIfNeeded() {
+        if (rememberTokenInput.value === "on") {
+          window.localStorage.setItem("aerialcast.socket.token", tokenInput.value.trim());
+        } else {
+          window.localStorage.removeItem("aerialcast.socket.token");
+        }
+      }
+
+      connectBtn.addEventListener("click", function () {
+        persistTokenIfNeeded();
+        connect();
+      });
+      disconnectBtn.addEventListener("click", disconnect);
+      addListenerBtn.addEventListener("click", addListener);
+      joinSessionBtn.addEventListener("click", joinSession);
+      leaveSessionBtn.addEventListener("click", leaveSession);
+      clearLogBtn.addEventListener("click", clearLog);
+      copyLogBtn.addEventListener("click", copyLog);
+
+      applyQueryOverrides();
+      hydrateToken();
+      configSummary.textContent = `${SETTINGS.baseUrl}${SETTINGS.namespace} (path: ${SETTINGS.path})`;
+      bootstrapCoreListeners();
+      setStatus("disconnected", false);
+      appendLog("Ready. Paste an access token and click Connect.");
+    }());
+  </script>
+</body>
+</html>

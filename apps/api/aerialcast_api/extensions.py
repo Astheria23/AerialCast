@@ -11,8 +11,8 @@ db = SQLAlchemy()
 migrate = Migrate()
 jwt = JWTManager()
 cors = CORS()
-# Allow origins to be refined via ``app.config['SOCKETIO_CORS_ALLOWED_ORIGINS']``.
-socketio = SocketIO(cors_allowed_origins="*")
+# Socket.IO options (cors, message queue, etc.) are provided at init_app time.
+socketio = SocketIO()
 
 
 __all__ = ["db", "migrate", "jwt", "cors", "socketio"]

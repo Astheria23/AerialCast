@@ -30,14 +30,20 @@ class FlightSessionService:
             emit_session_resumed(active_mission)
             return active_mission, "Existing session found"
 
-        mission = Mission.query.filter_by(
-            drone_id=drone.drone_id, status=MissionStatus.APPROVED
-        ).first()
+        mission = (
+            Mission.query.filter(
+                Mission.drone_id == drone.drone_id,
+                Mission.status.in_((MissionStatus.APPROVED, MissionStatus.IN_PROGRESS)),
+            )
+            .order_by(Mission.created_at.desc())
+            .first()
+        )
 
-        pilot_id = None
-        if mission and mission.created_by_user_id:
-            pilot_id = mission.created_by_user_id
-        else:
+        if mission is None:
+            return None, "No approved mission available for this drone"
+
+        pilot_id = mission.created_by_user_id
+        if not pilot_id:
             admin = User.query.filter_by(role=UserRole.ADMIN).first()
             if not admin:
                 return None, "No ADMIN user found to assign as pilot"
@@ -45,19 +51,21 @@ class FlightSessionService:
 
         new_session = FlightSession()
         new_session.drone_id = drone.drone_id
-        new_session.mission_id = mission.mission_id if mission else None
+        new_session.mission_id = mission.mission_id
         new_session.pilot_id = pilot_id
         new_session.status = SessionStatus.LIVE
         new_session.start_time = datetime.utcnow()
 
-        if mission:
+        status_changed = False
+        if mission.status == MissionStatus.APPROVED:
             mission.status = MissionStatus.IN_PROGRESS
+            status_changed = True
 
         try:
             db.session.add(new_session)
             db.session.commit()
             emit_session_started(new_session)
-            if mission:
+            if status_changed:
                 emit_mission_status_changed(mission)
             return new_session, "New session created"
         except Exception as exc:  # pragma: no cover - defensive fallback

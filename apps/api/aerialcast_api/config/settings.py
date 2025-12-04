@@ -33,6 +33,7 @@ class BaseConfig:
     SUPABASE_URL: str | None = os.getenv("SUPABASE_URL")
     SUPABASE_KEY: str | None = os.getenv("SUPABASE_KEY")
     SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "drone-image")
+    SOCKETIO_MESSAGE_QUEUE: str | None = os.getenv("SOCKETIO_MESSAGE_QUEUE")
 
 
 @dataclass(frozen=True)

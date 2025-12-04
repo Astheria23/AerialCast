@@ -64,7 +64,12 @@ def create_app(env: str | None = None) -> Flask:
 	migrate.init_app(app, db, directory=str(migrations_dir))
 	jwt.init_app(app)
 	socketio_allowed_origins = app.config.get("SOCKETIO_CORS_ALLOWED_ORIGINS", "*")
-	socketio.init_app(app, cors_allowed_origins=socketio_allowed_origins)
+	socketio_message_queue = app.config.get("SOCKETIO_MESSAGE_QUEUE")
+	socketio.init_app(
+		app,
+		cors_allowed_origins=socketio_allowed_origins,
+		message_queue=socketio_message_queue,
+	)
 
 	# Ensure Socket.IO handlers are registered after initialization.
 	from .sockets import handlers as _socket_handlers  # noqa: F401
