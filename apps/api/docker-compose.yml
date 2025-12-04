@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+  api:
+    build: .
+    image: aerialcast-api:latest
+    restart: always
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://aerialcast:${POSTGRES_PASSWORD}@postgres:5432/aerialcast}
+      SOCKETIO_MESSAGE_QUEUE: ${SOCKETIO_MESSAGE_QUEUE:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    ports:
+      - "5000:5000"
+
+  mqtt-listener:
+    image: aerialcast-api:latest
+    restart: always
+    command: ["python", "-m", "aerialcast_api.tasks.mqtt_listener"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg2://aerialcast:${POSTGRES_PASSWORD}@postgres:5432/aerialcast}
+      SOCKETIO_MESSAGE_QUEUE: ${SOCKETIO_MESSAGE_QUEUE:-redis://redis:6379/0}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_DB: aerialcast
+      POSTGRES_USER: aerialcast
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerialcast"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: ["redis-server", "--appendonly", "no"]
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
