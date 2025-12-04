@@ -11,7 +11,7 @@ from flask_smorest import Api
 
 from .blueprints import discover_blueprints
 from .config.settings import get_config
-from .extensions import cors, db, jwt, migrate
+from .extensions import cors, db, jwt, migrate, socketio
 
 
 PACKAGE_ROOT = Path(__file__).resolve().parent
@@ -63,6 +63,8 @@ def create_app(env: str | None = None) -> Flask:
 	db.init_app(app)
 	migrate.init_app(app, db, directory=str(migrations_dir))
 	jwt.init_app(app)
+	socketio_allowed_origins = app.config.get("SOCKETIO_CORS_ALLOWED_ORIGINS", "*")
+	socketio.init_app(app, cors_allowed_origins=socketio_allowed_origins)
 
 	api = Api(app)
 	_register_blueprints(api, discover_blueprints())

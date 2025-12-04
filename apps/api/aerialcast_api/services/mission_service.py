@@ -10,6 +10,7 @@ from ..repositories import (
 	MissionRepository,
 	UserRepository,
 )
+from ..sockets import emit_mission_status_changed
 
 
 class MissionService:
@@ -198,6 +199,7 @@ class MissionService:
         mission.status = target
         try:
             cls.mission_repository.commit()
+            emit_mission_status_changed(mission)
             return mission, 200
         except Exception as exc:  # pragma: no cover - defensive fallback
             cls.mission_repository.rollback()

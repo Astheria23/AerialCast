@@ -6,6 +6,7 @@ from ..extensions import db
 from ..models.enums import SessionStatus
 from ..models.execution import FlightSession, TelemetryData
 from ..models.master import Drone
+from ..sockets import emit_telemetry_update
 from .flight_session_service import FlightSessionService
 
 
@@ -63,6 +64,7 @@ class TelemetryService:
 
             db.session.add(new_telemetry)
             db.session.commit()
+            emit_telemetry_update(session, new_telemetry)
             print(f"Telemetry saved for session: {session.session_id}")
             return True
         except Exception as exc:  # pragma: no cover - defensive fallback

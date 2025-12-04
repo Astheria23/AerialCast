@@ -7,6 +7,12 @@ from ..models.enums import MissionStatus, SessionStatus, UserRole
 from ..models.execution import FlightSession, TelemetryData
 from ..models.master import Drone, User
 from ..models.planning import Mission
+from ..sockets import (
+    emit_mission_status_changed,
+    emit_session_ended,
+    emit_session_resumed,
+    emit_session_started,
+)
 
 
 class FlightSessionService:
@@ -21,6 +27,7 @@ class FlightSessionService:
         ).first()
 
         if active_mission:
+            emit_session_resumed(active_mission)
             return active_mission, "Existing session found"
 
         mission = Mission.query.filter_by(
@@ -49,6 +56,9 @@ class FlightSessionService:
         try:
             db.session.add(new_session)
             db.session.commit()
+            emit_session_started(new_session)
+            if mission:
+                emit_mission_status_changed(mission)
             return new_session, "New session created"
         except Exception as exc:  # pragma: no cover - defensive fallback
             db.session.rollback()
@@ -80,10 +90,14 @@ class FlightSessionService:
         session.status = SessionStatus.COMPLETED
         session.end_time = datetime.utcnow()
 
-        if session.mission:
-            session.mission.status = MissionStatus.COMPLETED
+        mission = session.mission
+        if mission:
+            mission.status = MissionStatus.COMPLETED
 
         db.session.commit()
+        emit_session_ended(session)
+        if mission:
+            emit_mission_status_changed(mission)
         return session
 
 
