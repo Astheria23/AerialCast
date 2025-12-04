@@ -9,7 +9,7 @@ from ..models.execution import FlightSession, TelemetryData
 from ..models.master import Drone, User
 from ..models.planning import Mission
 
-_DEFAULT_NAMESPACE = "/telemetry"
+TELEMETRY_NAMESPACE = "/telemetry"
 
 
 def _iso(value):
@@ -73,7 +73,9 @@ def _telemetry_payload(session: FlightSession, telemetry: TelemetryData) -> Dict
     return data
 
 
-def _emit(event: str, payload: Mapping[str, Any], namespace: str = _DEFAULT_NAMESPACE) -> None:
+def _emit(
+    event: str, payload: Mapping[str, Any], namespace: str = TELEMETRY_NAMESPACE
+) -> None:
     socketio.emit(event, payload, namespace=namespace)
 
 
@@ -128,4 +130,5 @@ __all__ = [
     "emit_telemetry_update",
     "emit_mission_status_changed",
     "emit_mqtt_status",
+    "TELEMETRY_NAMESPACE",
 ]

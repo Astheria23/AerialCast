@@ -66,6 +66,9 @@ def create_app(env: str | None = None) -> Flask:
 	socketio_allowed_origins = app.config.get("SOCKETIO_CORS_ALLOWED_ORIGINS", "*")
 	socketio.init_app(app, cors_allowed_origins=socketio_allowed_origins)
 
+	# Ensure Socket.IO handlers are registered after initialization.
+	from .sockets import handlers as _socket_handlers  # noqa: F401
+
 	api = Api(app)
 	_register_blueprints(api, discover_blueprints())
 

@@ -274,6 +274,53 @@ python -m aerialcast_api.tasks.mqtt_listener
 
 Ensure MQTT connection settings are configured in `.env`.
 
+### Realtime WebSocket API
+
+The backend exposes a Socket.IO server for realtime monitoring. The server shares the HTTP origin (`http://localhost:5000`) and uses namespace `/telemetry`.
+
+**Connecting**
+- Endpoint: `ws://localhost:5000/socket.io/?EIO=4&transport=websocket`
+- Namespace: `/telemetry`
+- Authentication: pass the JWT access token as a query parameter (`token=<JWT>`) or via an `Authorization` header if your Socket.IO client supports it. Connections without a valid access token are rejected during the Socket.IO handshake.
+- CORS: defaults to `*`. Override with `SOCKETIO_CORS_ALLOWED_ORIGINS` in config for production.
+
+**Emitted Events**
+
+| Event | Payload | Trigger |
+|-------|---------|---------|
+| `session_started` | `{ session_id, status, start_time, end_time, drone, mission, pilot }` | New flight session created for telemetry ingestion |
+| `session_resumed` | Same payload as `session_started` | Existing `LIVE` session reused when telemetry resumes |
+| `session_ended` | Same payload as `session_started` | Session status set to `COMPLETED` (manual end or lifecycle close) |
+| `telemetry_update` | `{ time, session_id, drone_id, mission_id, latitude, longitude, altitude, battery_voltage, rssi }` | Every persisted telemetry point |
+| `mission_status_changed` | `{ mission_id, mission_name, status, drone_id }` | Mission status transitions (e.g., auto change to `IN_PROGRESS`, completion) |
+| `mqtt_status` | `{ event, ... }` where `event` is `connected`, `connection_failed`, `connection_lost`, or `telemetry_error` plus context fields | MQTT listener connection lifecycle and telemetry ingestion failures |
+
+All timestamps are ISO-8601 strings. Identifiers are UUID strings. `telemetry_update` emits after a database commit, guaranteeing data is persisted before clients receive the update.
+
+**Client Example (JavaScript)**
+
+```js
+import { io } from "socket.io-client";
+
+const socket = io("http://localhost:5000/telemetry", {
+  query: { token: localStorage.getItem("jwt") },
+});
+
+socket.on("session_started", (payload) => {
+  console.log("Session started", payload);
+});
+
+socket.on("telemetry_update", (point) => {
+  updateMap(point.session_id, point.latitude, point.longitude, point.altitude);
+});
+
+socket.on("mqtt_status", (status) => {
+  showBanner(status.event, status.detail ?? status);
+});
+```
+
+Ensure clients handle reconnection logic and resubscribe to rooms if you introduce room-based filtering. For production, tighten CORS, enforce JWT validation during the Socket.IO handshake, and consider using Redis as the Socket.IO message broker for horizontal scaling.
+
 ## Troubleshooting
 
 - If `flask db upgrade` fails, verify your database URL and that PostgreSQL is running.
