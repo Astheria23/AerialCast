@@ -82,6 +82,14 @@ class TelemetryDataSchema(Schema):
     rssi = fields.Integer()
 
 
+class AlertSchema(Schema):
+    alert_id = fields.UUID(dump_only=True)
+    session_id = fields.UUID(dump_only=True)
+    alert_type = fields.String(dump_only=True)
+    message = fields.String(dump_only=True)
+    timestamp = fields.DateTime(dump_only=True)
+
+
 class FlightSessionSchema(Schema):
     session_id = fields.UUID(dump_only=True)
     status = fields.String(dump_only=True)
@@ -173,6 +181,7 @@ __all__ = [
     "DroneSchema",
     "MissionUpdateSchema",
     "TelemetryDataSchema",
+    "AlertSchema",
     "FlightSessionSchema",
     "MaintenanceLogSchema",
     "ChecklistItemSchema",

@@ -284,6 +284,12 @@ The backend exposes a Socket.IO server for realtime monitoring. The server share
 - Authentication: pass the JWT access token as a query parameter (`token=<JWT>`) or via an `Authorization` header if your Socket.IO client supports it. Connections without a valid access token are rejected during the Socket.IO handshake.
 - CORS: defaults to `*`. Override with `SOCKETIO_CORS_ALLOWED_ORIGINS` in config for production.
 
+**Subscribing to a Session**
+1. Setelah event `connect`, kirimkan `join_session` dengan payload `{ "session_id": "<uuid>" }`. Server akan merespon `joined_session` jika berhasil.
+2. Semua event `telemetry_update`, `session_resumed`, dan `session_ended` untuk sesi tersebut dikirim ke room internal `session:<session_id>` sehingga hanya klien yang sudah join yang menerima data.
+3. Untuk berhenti mendengar sesi, kirim `leave_session` dengan payload serupa; server mengirim `left_session` sebagai konfirmasi.
+4. Limitasi rate: backend menerapkan throttling 200 ms per room (`~5 Hz`). Jika telemetri datang lebih rapat, event di-drop sehingga frontend tidak dibanjiri titik yang tidak perlu.
+
 **Emitted Events**
 
 | Event | Payload | Trigger |
@@ -294,6 +300,7 @@ The backend exposes a Socket.IO server for realtime monitoring. The server share
 | `telemetry_update` | `{ time, session_id, drone_id, mission_id, latitude, longitude, altitude, battery_voltage, rssi }` | Every persisted telemetry point |
 | `mission_status_changed` | `{ mission_id, mission_name, status, drone_id }` | Mission status transitions (e.g., auto change to `IN_PROGRESS`, completion) |
 | `mqtt_status` | `{ event, ... }` where `event` is `connected`, `connection_failed`, `connection_lost`, or `telemetry_error` plus context fields | MQTT listener connection lifecycle and telemetry ingestion failures |
+| `joined_session` / `left_session` | `{ session_id }` | Acknowledgements for `join_session` / `leave_session` commands |
 
 All timestamps are ISO-8601 strings. Identifiers are UUID strings. `telemetry_update` emits after a database commit, guaranteeing data is persisted before clients receive the update.
 
@@ -313,6 +320,8 @@ socket.on("session_started", (payload) => {
 socket.on("telemetry_update", (point) => {
   updateMap(point.session_id, point.latitude, point.longitude, point.altitude);
 });
+
+socket.emit("join_session", { session_id: currentSessionId });
 
 socket.on("mqtt_status", (status) => {
   showBanner(status.event, status.detail ?? status);

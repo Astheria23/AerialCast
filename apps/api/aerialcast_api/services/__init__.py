@@ -1,5 +1,6 @@
 """Aggregate imports for service layer classes."""
 
+from .alert_service import AlertService
 from .auth_service import AuthService
 from .checklist_service import ChecklistService
 from .fleet_service import FleetService
@@ -10,6 +11,7 @@ from .mission_service import MissionService
 from .telemetry_service import TelemetryService
 
 __all__ = [
+	"AlertService",
 	"AuthService",
 	"ChecklistService",
 	"FleetService",

@@ -1,5 +1,6 @@
 """Aggregate exports for repository classes."""
 
+from .alert_repository import AlertRepository
 from .base import Repository
 from .checklist_repository import ChecklistRepository
 from .drone_repository import DroneRepository
@@ -11,6 +12,7 @@ from .telemetry_repository import TelemetryRepository
 from .user_repository import UserRepository
 
 __all__ = [
+	"AlertRepository",
 	"ChecklistRepository",
 	"DroneRepository",
 	"FlightSessionRepository",

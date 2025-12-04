@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Mapping
+import threading
+import time
+from typing import Any, Dict, Mapping, Optional
 
 from ..extensions import socketio
 from ..models.execution import FlightSession, TelemetryData
@@ -10,6 +12,11 @@ from ..models.master import Drone, User
 from ..models.planning import Mission
 
 TELEMETRY_NAMESPACE = "/telemetry"
+SESSION_ROOM_PREFIX = "session:"
+TELEMETRY_THROTTLE_SECONDS = 0.2
+
+_telemetry_emit_tracker: Dict[str, float] = {}
+_telemetry_tracker_lock = threading.Lock()
 
 
 def _iso(value):
@@ -74,33 +81,58 @@ def _telemetry_payload(session: FlightSession, telemetry: TelemetryData) -> Dict
 
 
 def _emit(
-    event: str, payload: Mapping[str, Any], namespace: str = TELEMETRY_NAMESPACE
+    event: str,
+    payload: Mapping[str, Any],
+    namespace: str = TELEMETRY_NAMESPACE,
+    room: Optional[str] = None,
 ) -> None:
-    socketio.emit(event, payload, namespace=namespace)
+    if room is not None:
+        socketio.emit(event, payload, namespace=namespace, to=room)
+    else:
+        socketio.emit(event, payload, namespace=namespace)
+
+
+def session_room(session_id) -> str:
+    return f"{SESSION_ROOM_PREFIX}{session_id}"
 
 
 def emit_session_started(session: FlightSession) -> None:
     """Broadcast that a new session has started."""
 
-    _emit("session_started", _session_payload(session))
+    payload = _session_payload(session)
+    _emit("session_started", payload)
+    _emit("session_started", payload, room=session_room(session.session_id))
 
 
 def emit_session_resumed(session: FlightSession) -> None:
     """Broadcast that telemetry resumed for an existing active session."""
 
-    _emit("session_resumed", _session_payload(session))
+    payload = _session_payload(session)
+    _emit("session_resumed", payload)
+    _emit("session_resumed", payload, room=session_room(session.session_id))
 
 
 def emit_session_ended(session: FlightSession) -> None:
     """Broadcast that a session has ended or been closed."""
 
-    _emit("session_ended", _session_payload(session))
+    payload = _session_payload(session)
+    _emit("session_ended", payload)
+    _emit("session_ended", payload, room=session_room(session.session_id))
 
 
 def emit_telemetry_update(session: FlightSession, telemetry: TelemetryData) -> None:
     """Broadcast a live telemetry update for an active session."""
 
-    _emit("telemetry_update", _telemetry_payload(session, telemetry))
+    room = session_room(session.session_id)
+
+    now = time.monotonic()
+    with _telemetry_tracker_lock:
+        last_emit = _telemetry_emit_tracker.get(room)
+        if last_emit is not None and now - last_emit < TELEMETRY_THROTTLE_SECONDS:
+            return
+        _telemetry_emit_tracker[room] = now
+
+    _emit("telemetry_update", _telemetry_payload(session, telemetry), room=room)
 
 
 def emit_mission_status_changed(mission: Mission) -> None:
@@ -131,4 +163,7 @@ __all__ = [
     "emit_mission_status_changed",
     "emit_mqtt_status",
     "TELEMETRY_NAMESPACE",
+    "SESSION_ROOM_PREFIX",
+    "TELEMETRY_THROTTLE_SECONDS",
+    "session_room",
 ]
