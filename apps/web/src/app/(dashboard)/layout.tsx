@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import Navbar from "@/components/layout/navbar"
 import Sidebar from "@/components/layout/sidebar"
@@ -14,16 +14,13 @@ export default function DashboardLayout({
   children: React.ReactNode
 }>) {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const isLoggedIn = useMemo(() => !!authService.getUser(), [])
 
   useEffect(() => {
-    const loggedIn = !!authService.getUser()
-    if (!loggedIn) {
+    if (!isLoggedIn) {
       router.push("/login")
-    } else {
-      setIsLoggedIn(true)
     }
-  }, [router])
+  }, [isLoggedIn, router])
 
   if (!isLoggedIn) {
     return null

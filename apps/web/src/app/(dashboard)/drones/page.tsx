@@ -1,17 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useDrones } from "@/hooks/drones.hooks"
 import { useAuth } from "@/hooks/auth.hooks"
 import { DroneCard } from "@/components/drones/drone-card"
 import { Button } from "@/components/ui/button"
 import { Plus, Loader2 } from "lucide-react"
-import { Drone } from "@/types/drones.types"
+import type { Drone } from "@/types/drones.types"
 
 export default function DronesPage() {
   const { drones, loading, error, fetchDrones, deleteDrone } = useDrones()
   const { isAdmin } = useAuth()
-  const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null)
 
   useEffect(() => {
     fetchDrones()
@@ -28,7 +27,6 @@ export default function DronesPage() {
   }
 
   const handleViewDetail = (drone: Drone) => {
-    setSelectedDrone(drone)
     // You can add a modal or navigate to detail page
     console.log("View detail for drone:", drone)
   }

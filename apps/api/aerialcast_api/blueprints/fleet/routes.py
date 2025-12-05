@@ -17,7 +17,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/")
+@blp.route("/", strict_slashes=False)
 class DroneList(MethodView):
 	@blp.response(200, DroneSchema(many=True))
 	def get(self):
@@ -34,7 +34,7 @@ class DroneList(MethodView):
 		return result
 
 
-@blp.route("/<uuid:drone_id>")
+@blp.route("/<uuid:drone_id>", strict_slashes=False)
 class DroneDetail(MethodView):
 	@blp.response(200, DroneSchema)
 	def get(self, drone_id):

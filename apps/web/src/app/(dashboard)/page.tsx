@@ -1,13 +1,15 @@
 "use client"
 
+import { useRouter } from "next/navigation"
+
 import { authService } from "@/services/auth.service"
 import { Button } from "@/components/ui/button"
-import { useRouter } from "next/navigation"
 
 export default function Home() {
   const router = useRouter()
   const handleLogout = () => {
     authService.logout()
+    router.push("/login")
   }
 
   return (

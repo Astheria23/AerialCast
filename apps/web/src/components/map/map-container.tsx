@@ -25,8 +25,6 @@ export const MapContainer: React.FC = () => {
                 if (mounted) setLeaflet(mod);
             })
             .catch((err) => {
-                // keep short: log error
-                // eslint-disable-next-line no-console
                 console.error("Failed to load leaflet", err);
             });
 

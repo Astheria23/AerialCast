@@ -1,11 +1,28 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { isAxiosError } from "axios"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useRouter } from "next/navigation"
 import { authService } from "@/services/auth.service"
+
+type ApiErrorResponse = {
+  message?: string
+  error?: string
+}
+
+const getRegisterErrorMessage = (error: unknown, fallback: string) => {
+  if (isAxiosError<ApiErrorResponse>(error)) {
+    return error.response?.data?.message ?? error.response?.data?.error ?? fallback
+  }
+  if (error instanceof Error) {
+    return error.message
+  }
+  return fallback
+}
 
 export function RegisterForm() {
   const router = useRouter()
@@ -17,8 +34,8 @@ export function RegisterForm() {
   const [error, setError] = useState("")
   const [agreeToTerms, setAgreeToTerms] = useState(false)
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
     setError("")
 
     if (password !== confirmPassword) {
@@ -39,11 +56,9 @@ export function RegisterForm() {
         email,
         password,
       })
-      // On success, redirect to the login page with a success message
       router.push("/login?registered=true")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed. Please try again.")
-      console.error("Registration error:", err)
+    } catch (err) {
+      setError(getRegisterErrorMessage(err, "Registration failed. Please try again."))
     } finally {
       setIsLoading(false)
     }
@@ -154,7 +169,7 @@ export function RegisterForm() {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
+  className="w-full bg-linear-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
       >
         {isLoading ? "Creating account..." : "Create Account"}
       </Button>
