@@ -17,7 +17,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/")
+@blp.route("/", strict_slashes=False)
 class GeofenceList(MethodView):
 	@jwt_required()
 	@blp.response(200, GeofenceSchema(many=True))
@@ -38,7 +38,7 @@ class GeofenceList(MethodView):
 		return result
 
 
-@blp.route("/<uuid:geofence_id>")
+@blp.route("/<uuid:geofence_id>", strict_slashes=False)
 class GeofenceDetail(MethodView):
 	@jwt_required()
 	@blp.response(200, GeofenceSchema)

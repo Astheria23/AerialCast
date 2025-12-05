@@ -1,18 +1,20 @@
 "use client"
 
 import { format } from "date-fns"
-import { Edit, MapPin, Trash2 } from "lucide-react"
+import { Edit, Loader2, MapPin, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Mission } from "@/types/missions.types"
+import type { Mission, MissionStatusAction } from "@/types/missions.types"
 
 interface MissionCardProps {
   mission: Mission
   droneName?: string
   onEdit?: (mission: Mission) => void
   onDelete?: (missionId: string) => void
+  onStatusAction?: (mission: Mission, action: MissionStatusAction) => void
   disableActions?: boolean
+  isStatusUpdating?: boolean
 }
 
 const statusClasses: Record<string, string> = {
@@ -25,10 +27,35 @@ const statusClasses: Record<string, string> = {
   CANCELED: "bg-zinc-100 text-zinc-800",
 }
 
-export function MissionCard({ mission, droneName, onEdit, onDelete, disableActions }: MissionCardProps) {
+const statusActionMap: Partial<Record<string, MissionStatusAction[]>> = {
+  DRAFT: ["submit", "cancel"],
+  PENDING_APPROVAL: ["approve", "reject", "cancel"],
+  APPROVED: ["start", "cancel"],
+  IN_PROGRESS: ["complete", "cancel"],
+}
+
+const statusActionLabels: Record<MissionStatusAction, string> = {
+  submit: "Submit",
+  approve: "Approve",
+  reject: "Reject",
+  start: "Start",
+  complete: "Complete",
+  cancel: "Cancel",
+}
+
+export function MissionCard({
+  mission,
+  droneName,
+  onEdit,
+  onDelete,
+  onStatusAction,
+  disableActions,
+  isStatusUpdating,
+}: MissionCardProps) {
   const formattedDate = mission.created_at ? format(new Date(mission.created_at), "dd MMM yyyy HH:mm") : ""
   const status = mission.status || "DRAFT"
   const statusClass = statusClasses[status] ?? "bg-slate-100 text-slate-800"
+  const availableActions = statusActionMap[status] ?? []
 
   return (
     <Card className="overflow-hidden">
@@ -56,8 +83,31 @@ export function MissionCard({ mission, droneName, onEdit, onDelete, disableActio
           <MapPin className="h-4 w-4" />
           <span>{mission.waypoints?.length || 0} waypoint(s)</span>
         </div>
-        {(onEdit || onDelete) && (
+        {(availableActions.length > 0 || onEdit || onDelete) && (
           <div className="flex flex-wrap gap-2">
+            {availableActions.length > 0 && onStatusAction && (
+              <div className="flex flex-wrap gap-2">
+                {availableActions.map((action) => (
+                  <Button
+                    key={action}
+                    type="button"
+                    variant={action === "cancel" || action === "reject" ? "destructive" : "secondary"}
+                    size="sm"
+                    onClick={() => onStatusAction(mission, action)}
+                    disabled={disableActions || isStatusUpdating}
+                  >
+                    {isStatusUpdating ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Updating...
+                      </>
+                    ) : (
+                      statusActionLabels[action]
+                    )}
+                  </Button>
+                ))}
+              </div>
+            )}
             {onEdit && (
               <Button
                 type="button"

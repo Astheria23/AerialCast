@@ -17,7 +17,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/drones/<uuid:drone_id>/maintenance")
+@blp.route("/drones/<uuid:drone_id>/maintenance", strict_slashes=False)
 class DroneMaintenanceList(MethodView):
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()
@@ -42,7 +42,7 @@ class DroneMaintenanceList(MethodView):
 		return result
 
 
-@blp.route("/maintenance/<uuid:log_id>")
+@blp.route("/maintenance/<uuid:log_id>", strict_slashes=False)
 class MaintenanceDetail(MethodView):
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()

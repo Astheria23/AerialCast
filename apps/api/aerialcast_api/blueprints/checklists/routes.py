@@ -17,7 +17,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/")
+@blp.route("/", strict_slashes=False)
 class ChecklistList(MethodView):
 	@jwt_required()
 	@blp.response(200, ChecklistSchema(many=True))
@@ -38,7 +38,7 @@ class ChecklistList(MethodView):
 		return result
 
 
-@blp.route("/<uuid:checklist_id>")
+@blp.route("/<uuid:checklist_id>", strict_slashes=False)
 class ChecklistDetail(MethodView):
 	@jwt_required()
 	@blp.response(200, ChecklistSchema)

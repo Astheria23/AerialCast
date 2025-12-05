@@ -17,7 +17,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/")
+@blp.route("/", strict_slashes=False)
 class MissionList(MethodView):
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()
@@ -38,7 +38,7 @@ class MissionList(MethodView):
 		return result
 
 
-@blp.route("/<uuid:mission_id>")
+@blp.route("/<uuid:mission_id>", strict_slashes=False)
 class MissionDetail(MethodView):
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()

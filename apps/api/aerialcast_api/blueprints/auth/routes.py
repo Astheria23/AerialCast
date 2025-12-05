@@ -16,7 +16,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/register")
+@blp.route("/register", strict_slashes=False)
 class UserRegister(MethodView):
 	@blp.arguments(UserRegisterSchema)
 	def post(self, user_data):
@@ -28,7 +28,7 @@ class UserRegister(MethodView):
 		return result, status_code
 
 
-@blp.route("/login")
+@blp.route("/login", strict_slashes=False)
 class UserLogin(MethodView):
 	@blp.arguments(UserLoginSchema)
 	def post(self, user_data):

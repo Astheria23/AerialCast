@@ -1,5 +1,6 @@
 "use client"
 
+import dynamic from "next/dynamic"
 import { useMemo, useState, type ChangeEvent, type FormEvent } from "react"
 
 import { Button } from "@/components/ui/button"
@@ -39,6 +40,8 @@ export interface MissionFormPayload {
   waypoints: MissionWaypoint[]
 }
 
+const MissionWaypointsMap = dynamic(() => import("./mission-waypoints-map"), { ssr: false })
+
 interface MissionFormProps {
   drones: Drone[]
   mode: "create" | "edit"
@@ -60,7 +63,9 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
 
   const [waypoints, setWaypoints] = useState<WaypointFormValue[]>(() => {
     if (initialData?.waypoints?.length) {
-      return initialData.waypoints.map((wp) => ({
+      return [...initialData.waypoints]
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+        .map((wp) => ({
         latitude: String(wp.latitude ?? ""),
         longitude: String(wp.longitude ?? ""),
         altitude: String(wp.altitude ?? ""),
@@ -68,6 +73,25 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
     }
     return [{ ...defaultWaypoint }]
   })
+
+  const numericWaypoints = useMemo(
+    () =>
+      waypoints
+        .map((wp, idx) => {
+          const latitude = parseFloat(wp.latitude)
+          const longitude = parseFloat(wp.longitude)
+          if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+            return null
+          }
+          return {
+            latitude,
+            longitude,
+            order: idx,
+          }
+        })
+        .filter(Boolean) as { latitude: number; longitude: number; order: number }[],
+    [waypoints]
+  )
 
   const droneOptions = useMemo(() => drones.map((drone) => ({ value: drone.drone_id, label: `${drone.name} (${drone.model})` })), [drones])
 
@@ -92,6 +116,21 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
     setWaypoints((prev) => (prev.length === 1 ? prev : prev.filter((_, idx) => idx !== index)))
   }
 
+  const handleMapClick = ({ lat, lng }: { lat: number; lng: number }) => {
+    setWaypoints((prev) => [
+      ...prev,
+      {
+        latitude: lat.toFixed(6),
+        longitude: lng.toFixed(6),
+        altitude: defaultWaypoint.altitude,
+      },
+    ])
+  }
+
+  const handleClearWaypoints = () => {
+    setWaypoints([{ ...defaultWaypoint }])
+  }
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
@@ -104,7 +143,7 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
         latitude: parseFloat(wp.latitude),
         longitude: parseFloat(wp.longitude),
         altitude: wp.altitude ? parseFloat(wp.altitude) : undefined,
-        order: idx + 1,
+        order: idx,
       }))
       .filter((wp) => !Number.isNaN(wp.latitude) && !Number.isNaN(wp.longitude))
 
@@ -176,51 +215,68 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
       </div>
 
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label>Waypoints</Label>
-          <Button type="button" variant="outline" size="sm" onClick={handleAddWaypoint}>
-            Add waypoint
-          </Button>
+        <div className="space-y-3 rounded-xl border border-dashed p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <Label>Map waypoints</Label>
+              <p className="text-xs text-muted-foreground">Click on the map to add waypoints. The first click is order 0.</p>
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={handleAddWaypoint}>
+                Add manually
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={handleClearWaypoints}>
+                Clear
+              </Button>
+            </div>
+          </div>
+          <div className="h-72 w-full overflow-hidden rounded-lg border">
+            <MissionWaypointsMap waypoints={numericWaypoints} onMapClick={handleMapClick} />
+          </div>
         </div>
+
         <div className="space-y-4">
           {waypoints.map((waypoint, index) => (
-            <div key={`waypoint-${index}`} className="grid gap-3 rounded-lg border border-dashed p-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <Label>Latitude</Label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={waypoint.latitude}
-                  onChange={(event) => handleWaypointChange(index, "latitude", event.target.value)}
-                  placeholder="-6.2000"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Longitude</Label>
-                <Input
-                  type="number"
-                  step="0.0001"
-                  value={waypoint.longitude}
-                  onChange={(event) => handleWaypointChange(index, "longitude", event.target.value)}
-                  placeholder="106.8167"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Altitude (m)</Label>
-                <Input
-                  type="number"
-                  step="1"
-                  value={waypoint.altitude}
-                  onChange={(event) => handleWaypointChange(index, "altitude", event.target.value)}
-                  placeholder="15"
-                />
-              </div>
-              <div className="md:col-span-3 text-right">
+            <div key={`waypoint-${index}`} className="space-y-3 rounded-lg border border-dashed p-4">
+              <div className="flex items-center justify-between text-sm font-semibold">
+                <span>Waypoint #{index}</span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveWaypoint(index)} disabled={waypoints.length === 1}>
                   Remove
                 </Button>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-2">
+                  <Label>Latitude</Label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    value={waypoint.latitude}
+                    onChange={(event) => handleWaypointChange(index, "latitude", event.target.value)}
+                    placeholder="-6.200000"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Longitude</Label>
+                  <Input
+                    type="number"
+                    step="0.000001"
+                    value={waypoint.longitude}
+                    onChange={(event) => handleWaypointChange(index, "longitude", event.target.value)}
+                    placeholder="106.816700"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Altitude (m)</Label>
+                  <Input
+                    type="number"
+                    step="1"
+                    value={waypoint.altitude}
+                    onChange={(event) => handleWaypointChange(index, "altitude", event.target.value)}
+                    placeholder="15"
+                  />
+                </div>
               </div>
             </div>
           ))}

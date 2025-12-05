@@ -16,7 +16,7 @@ blp = Blueprint(
 )
 
 
-@blp.route("/")
+@blp.route("/", strict_slashes=False)
 class SessionList(MethodView):
 	@jwt_required()
 	@blp.response(200, FlightSessionSchema(many=True))
@@ -26,7 +26,7 @@ class SessionList(MethodView):
 		return FlightSessionService.get_all_sessions()
 
 
-@blp.route("/<uuid:session_id>")
+@blp.route("/<uuid:session_id>", strict_slashes=False)
 class SessionDetail(MethodView):
 	@jwt_required()
 	@blp.response(200, FlightSessionSchema)
@@ -36,7 +36,7 @@ class SessionDetail(MethodView):
 		return FlightSessionService.get_session_by_id(session_id)
 
 
-@blp.route("/<uuid:session_id>/replay")
+@blp.route("/<uuid:session_id>/replay", strict_slashes=False)
 class SessionReplay(MethodView):
 	@jwt_required()
 	@blp.response(200, TelemetryDataSchema(many=True))
@@ -46,7 +46,7 @@ class SessionReplay(MethodView):
 		return FlightSessionService.get_telemetry_replay(session_id)
 
 
-@blp.route("/<uuid:session_id>/end")
+@blp.route("/<uuid:session_id>/end", strict_slashes=False)
 class SessionEnd(MethodView):
 	@jwt_required()
 	@blp.response(200, FlightSessionSchema)
