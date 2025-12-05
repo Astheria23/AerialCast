@@ -180,8 +180,11 @@ class MissionService:
         if not user:
             return {"error": "User not found"}, 404
 
+        requester_id = str(user_id)
+        mission_creator_id = str(mission.created_by_user_id)
+
         is_admin = user.role == UserRole.ADMIN
-        is_creator = mission.created_by_user_id == user_id
+        is_creator = mission_creator_id == requester_id
         admin_is_creator = is_admin and is_creator
 
         admin_only_actions = {"approve", "reject", "cancel"}
@@ -229,7 +232,27 @@ class MissionService:
                 "error": f"Invalid transition from {current.name} to {target.name}"
             }, 400
 
+        if action == "start":
+            drone = mission.drone
+            if not drone:
+                return {"error": "Mission does not have an assigned drone"}, 400
+            if drone.status != DroneStatus.READY:
+                return {
+                    "error": "Drone is not READY. Please pick an available drone before starting",
+                }, 400
+            existing_live = cls.mission_repository.find_live_for_drone(mission.drone_id)
+            if existing_live and existing_live.mission_id != mission.mission_id:
+                return {
+                    "error": "This drone is already flying another mission",
+                }, 400
+
         mission.status = target
+        drone = mission.drone
+        if target == MissionStatus.IN_PROGRESS and drone:
+            drone.status = DroneStatus.FLYING
+
+        if target in {MissionStatus.COMPLETED, MissionStatus.CANCELED} and drone:
+            drone.status = DroneStatus.READY
 
         if target in {MissionStatus.COMPLETED, MissionStatus.CANCELED}:
             cls._close_active_sessions(mission)

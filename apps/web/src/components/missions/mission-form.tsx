@@ -93,7 +93,25 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
     [waypoints]
   )
 
-  const droneOptions = useMemo(() => drones.map((drone) => ({ value: drone.drone_id, label: `${drone.name} (${drone.model})` })), [drones])
+  const availableDrones = useMemo(() => {
+    const readyOnly = drones.filter((drone) => (drone.status ?? "").toUpperCase() === "READY")
+    if (mode === "edit" && initialData) {
+      const current = drones.find((drone) => drone.drone_id === initialData.drone_id)
+      if (current && !readyOnly.some((drone) => drone.drone_id === current.drone_id)) {
+        return [...readyOnly, current]
+      }
+    }
+    return readyOnly
+  }, [drones, initialData, mode])
+
+  const droneOptions = useMemo(
+    () =>
+      availableDrones.map((drone) => ({
+        value: drone.drone_id,
+        label: `${drone.name} (${drone.model})`,
+      })),
+    [availableDrones]
+  )
 
   const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value, type } = event.target
@@ -189,6 +207,7 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
             value={values.drone_id}
             onChange={handleChange}
             required
+            disabled={!droneOptions.length}
             className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <option value="">Select drone</option>
@@ -198,6 +217,14 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
               </option>
             ))}
           </select>
+          {!droneOptions.length && (
+            <p className="text-xs text-destructive">
+              {mode === "create"
+                ? "No READY drones available. Please prepare a drone before creating a mission."
+                : "The assigned drone is currently unavailable."
+              }
+            </p>
+          )}
         </div>
       </div>
 
