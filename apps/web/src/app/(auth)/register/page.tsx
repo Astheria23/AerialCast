@@ -19,6 +19,12 @@ export default function RegisterPage() {
     <AuthLayout
       title="Aerial Cast"
       subtitle="Drone Monitoring & Control Platform"
+      logo={{
+        src: "/images/aerialcast-logo.svg",
+        alt: "AerialCast",
+        width: 200,
+        height: 60,
+      }}
       alternateLink={{
         href: "/login",
         text: "Sign in",
