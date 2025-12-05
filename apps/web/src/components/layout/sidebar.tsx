@@ -2,13 +2,14 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { LayoutDashboard, Zap, Bone as Drone, MapPin, Users } from "lucide-react"
+import { LayoutDashboard, Zap, Bone as Drone, MapPin, Users, ListChecks } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useSidebar } from "./sidebar-provider"
 
 const pilotNavItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/missions", label: "Mission", icon: Zap },
+  { href: "/checklists", label: "Checklists", icon: ListChecks },
   { href: "/drones", label: "Drone", icon: Drone },
   { href: "/geofences", label: "Geofences", icon: MapPin },
 ]
@@ -16,6 +17,7 @@ const pilotNavItems = [
 const adminNavItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/missions", label: "Mission", icon: Zap },
+  { href: "/checklists", label: "Checklists", icon: ListChecks },
   { href: "/drones", label: "Drone", icon: Drone },
   { href: "/pilots", label: "Pilot", icon: Users },
   { href: "/geofences", label: "Geofences", icon: MapPin },
