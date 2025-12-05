@@ -4,7 +4,7 @@ from datetime import datetime
 
 from flask_smorest import abort
 
-from ..models.enums import MissionStatus, SessionStatus, UserRole
+from ..models.enums import DroneStatus, MissionStatus, SessionStatus, UserRole
 from ..models.execution import FlightSession
 from ..models.planning import Mission, MissionWaypoint
 from ..repositories import (
@@ -42,6 +42,8 @@ class MissionService:
         for session in live_sessions:
             session.status = SessionStatus.COMPLETED
             session.end_time = now
+            if session.drone:
+                session.drone.status = DroneStatus.READY
         return len(live_sessions)
 
     @classmethod
@@ -175,8 +177,21 @@ class MissionService:
         mission = cls._get_mission_or_404(mission_id)
         user = cls.user_repository.get(user_id)
 
-        if not user or user.role != UserRole.ADMIN:
-            return {"error": "Only ADMIN can change mission status"}, 403
+        if not user:
+            return {"error": "User not found"}, 404
+
+        is_admin = user.role == UserRole.ADMIN
+        is_creator = mission.created_by_user_id == user_id
+        admin_is_creator = is_admin and is_creator
+
+        admin_only_actions = {"approve", "reject", "cancel"}
+        pilot_actions = {"submit", "start", "complete"}
+
+        if action in admin_only_actions and not is_admin:
+            return {"error": "Only ADMIN can perform this action"}, 403
+
+        if action in pilot_actions and not (is_creator or admin_is_creator):
+            return {"error": "Only the mission owner can perform this action"}, 403
 
         action_map = {
             "submit": MissionStatus.PENDING_APPROVAL,

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Filter, Loader2, MapPin, Plus, Search } from "lucide-react"
 
 import { MissionCard } from "@/components/missions/mission-card"
@@ -15,7 +15,7 @@ import { useMissions } from "@/hooks/missions.hooks"
 import type { Mission, MissionStatus, MissionStatusAction } from "@/types/missions.types"
 
 export default function MissionsPage() {
-  const { isAdmin, isPilot } = useAuth()
+  const { user, isAdmin, isPilot } = useAuth()
   const { drones, fetchDrones } = useDrones()
   const { missions, loading, error, fetchMissions, createMission, updateMission, deleteMission, changeMissionStatus } = useMissions()
 
@@ -46,6 +46,7 @@ export default function MissionsPage() {
   }, [drones])
 
   const canManageMissions = isAdmin || isPilot
+  const canTriggerStatusAction = isAdmin || isPilot
   const isFormOpen = Boolean(formMode)
 
   const openCreateForm = () => {
@@ -121,8 +122,29 @@ export default function MissionsPage() {
     }
   }
 
+  const canPerformStatusAction = useCallback(
+    (mission: Mission, action: MissionStatusAction) => {
+  const isOwner = mission.created_by_user_id === user?.id
+  const adminIsOwner = isAdmin && isOwner
+      if (action === "approve" || action === "reject" || action === "cancel") {
+        return isAdmin
+      }
+      if (action === "submit") {
+        return isOwner || isAdmin
+      }
+      if (action === "start" || action === "complete") {
+        return (isOwner && isPilot) || adminIsOwner
+      }
+      return false
+    },
+    [isAdmin, isPilot, user?.id],
+  )
+
   const handleStatusAction = async (mission: Mission, action: MissionStatusAction) => {
-    if (!isAdmin) return
+    if (!canPerformStatusAction(mission, action)) {
+      setStatusActionError("You do not have permission to perform this action")
+      return
+    }
     const confirmDestructive = action === "reject" || action === "cancel"
     const confirmationMessage =
       action === "submit"
@@ -369,7 +391,8 @@ export default function MissionsPage() {
               droneName={droneLookup[mission.drone_id]}
               onEdit={canManageMissions ? openEditForm : undefined}
               onDelete={canManageMissions ? handleDelete : undefined}
-              onStatusAction={isAdmin ? handleStatusAction : undefined}
+              onStatusAction={canTriggerStatusAction ? handleStatusAction : undefined}
+              canPerformAction={(action) => canPerformStatusAction(mission, action)}
               disableActions={isSubmitting}
               isStatusUpdating={statusActionMissionId === mission.mission_id}
             />

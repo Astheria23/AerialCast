@@ -14,6 +14,7 @@ interface MissionCardProps {
   onEdit?: (mission: Mission) => void
   onDelete?: (missionId: string) => void
   onStatusAction?: (mission: Mission, action: MissionStatusAction) => void
+  canPerformAction?: (action: MissionStatusAction) => boolean
   disableActions?: boolean
   isStatusUpdating?: boolean
 }
@@ -50,6 +51,7 @@ export function MissionCard({
   onEdit,
   onDelete,
   onStatusAction,
+  canPerformAction,
   disableActions,
   isStatusUpdating,
 }: MissionCardProps) {
@@ -57,6 +59,7 @@ export function MissionCard({
   const status = mission.status || "DRAFT"
   const statusClass = statusClasses[status] ?? "bg-slate-100 text-slate-800"
   const availableActions = statusActionMap[status] ?? []
+  const filteredActions = availableActions.filter((action) => (canPerformAction ? canPerformAction(action) : true))
 
   return (
     <Card className="overflow-hidden">
@@ -85,9 +88,9 @@ export function MissionCard({
           <span>{mission.waypoints?.length || 0} waypoint(s)</span>
         </div>
         <div className="flex flex-wrap gap-2">
-          {availableActions.length > 0 && onStatusAction && (
+          {filteredActions.length > 0 && onStatusAction && (
             <div className="flex flex-wrap gap-2">
-              {availableActions.map((action) => (
+              {filteredActions.map((action) => (
                 <Button
                   key={action}
                   type="button"

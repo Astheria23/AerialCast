@@ -1,9 +1,10 @@
 """Telemetry ingestion service."""
 
 from datetime import datetime
+from typing import Optional
 
 from ..extensions import db
-from ..models.enums import SessionStatus
+from ..models.enums import DroneStatus, MissionStatus, SessionStatus
 from ..models.execution import FlightSession, TelemetryData
 from ..models.master import Drone
 from .flight_session_service import FlightSessionService
@@ -40,6 +41,13 @@ class TelemetryService:
                 print(f"Telemetry ignored for {lora_id}: {msg}")
                 return False
 
+        if TelemetryService._session_should_close(session):
+            TelemetryService._close_session(session, reason="Mission not active")
+            print(
+                f"Telemetry ignored for session {session.session_id}: mission {session.mission_id} no longer active"
+            )
+            return False
+
         try:
             new_telemetry = TelemetryData()
             provided_time = payload.get("time")
@@ -69,6 +77,27 @@ class TelemetryService:
             print(f"Error saving telemetry: {exc}")
             db.session.rollback()
             return False
+
+    @staticmethod
+    def _session_should_close(session: FlightSession) -> bool:
+        if session.status != SessionStatus.LIVE:
+            return True
+        mission = session.mission
+        if mission is None:
+            return False
+        return mission.status != MissionStatus.IN_PROGRESS
+
+    @staticmethod
+    def _close_session(session: FlightSession, reason: Optional[str] = None):
+        session.status = SessionStatus.COMPLETED
+        session.end_time = datetime.utcnow()
+        if session.drone:
+            session.drone.status = DroneStatus.READY
+        db.session.commit()
+        if reason:
+            print(f"Session {session.session_id} closed: {reason}")
+        else:
+            print(f"Session {session.session_id} closed")
 
 
 __all__ = ["TelemetryService"]

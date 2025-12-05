@@ -1,16 +1,28 @@
 import api from '@/lib/axios';
 import { LoginCredentials, RegisterCredentials, AuthResponse, User } from '@/types/auth.types';
 
-const normalizeUserRole = (user: User | null | undefined): User | null => {
+type RawUser = Partial<User> & { user_id?: string; userId?: string; role?: string };
+
+const normalizeUser = (user: RawUser | null | undefined): User | null => {
   if (!user) return null;
-  const normalizedRole = typeof user.role === 'string' ? (user.role.toLowerCase() as User['role']) : user.role;
-  return { ...user, role: normalizedRole };
+  const normalizedRole = typeof user.role === 'string' ? (user.role.toLowerCase() as User['role']) : 'viewer';
+  const id = user.id ?? user.user_id ?? user.userId;
+  if (!id) {
+    return null;
+  }
+
+  return {
+    ...(user as object),
+    id,
+    user_id: user.user_id ?? id,
+    role: normalizedRole,
+  } as User;
 };
 
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
-    const normalizedUser = normalizeUserRole(response.data.user);
+    const normalizedUser = normalizeUser(response.data.user);
 
     if (response.data.access_token && normalizedUser) {
       localStorage.setItem('token', response.data.access_token);
@@ -29,7 +41,7 @@ export const authService = {
       password: credentials.password,
       full_name: credentials.fullName,
     });
-    const normalizedUser = normalizeUserRole(response.data.user);
+    const normalizedUser = normalizeUser(response.data.user);
     return { ...response.data, user: normalizedUser ?? response.data.user };
   },
 
@@ -44,8 +56,8 @@ export const authService = {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
-          const parsed = JSON.parse(userStr) as User;
-          return normalizeUserRole(parsed);
+          const parsed = JSON.parse(userStr) as RawUser;
+          return normalizeUser(parsed);
         } catch {
           return null;
         }

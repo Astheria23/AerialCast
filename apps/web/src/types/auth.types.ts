@@ -1,8 +1,12 @@
+export type UserRole = 'admin' | 'pilot' | 'viewer';
+
 export interface User {
   id: string;
+  user_id?: string;
   email: string;
   full_name: string;
-  role: 'admin' | 'pilot' | 'viewer';
+  role: UserRole;
+  created_at?: string;
 }
 
 export interface AuthResponse {
