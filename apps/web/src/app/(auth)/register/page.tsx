@@ -4,16 +4,17 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AuthLayout } from "@/components/auth/auth-layout"
 import { RegisterForm } from "@/components/auth/register-form"
+import { useAuth } from "@/hooks/auth.hooks"
 
 export default function RegisterPage() {
   const router = useRouter()
+  const { status, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    const token = localStorage.getItem("token")
-    if (token) {
-      router.push("/")
+    if (status === "authenticated" && isAuthenticated) {
+      router.replace("/")
     }
-  }, [router])
+  }, [isAuthenticated, router, status])
 
   return (
     <AuthLayout

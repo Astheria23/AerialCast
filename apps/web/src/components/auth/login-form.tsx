@@ -7,26 +7,29 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import Link from "next/link"
-import { useRouter } from "next/navigation";
-import { authService } from "@/services/auth.service";
+import { useRouter } from "next/navigation"
+import { parseApiError } from "@/utils/api-error"
+import { useAuth } from "@/hooks/auth.hooks"
 
 export function LoginForm() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      await authService.login({ email, password });
+  await login({ email, password });
       router.push('/'); // Redirect on success
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Login failed');
+    } catch (error: unknown) {
+      const { message } = parseApiError(error);
+      setError(message || 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -100,7 +103,7 @@ export function LoginForm() {
       <Button
         type="submit"
         disabled={loading}
-        className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
+        className="w-full bg-linear-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
       >
         {loading ? "Signing in..." : "Sign In"}
       </Button>

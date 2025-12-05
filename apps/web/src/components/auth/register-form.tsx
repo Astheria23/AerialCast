@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useRouter } from "next/navigation"
-import { authService } from "@/services/auth.service"
+import { parseApiError } from "@/utils/api-error"
+import { useAuth } from "@/hooks/auth.hooks"
 
 export function RegisterForm() {
   const router = useRouter()
+  const { register } = useAuth()
   const [fullName, setFullName] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
@@ -34,16 +36,17 @@ export function RegisterForm() {
     setIsLoading(true)
 
     try {
-      await authService.register({
+      await register({
         fullName,
         email,
         password,
       })
       // On success, redirect to the login page with a success message
       router.push("/login?registered=true")
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Registration failed. Please try again.")
-      console.error("Registration error:", err)
+    } catch (error: unknown) {
+      const { message } = parseApiError(error)
+      setError(message || "Registration failed. Please try again.")
+      console.error("Registration error:", error)
     } finally {
       setIsLoading(false)
     }
@@ -154,7 +157,7 @@ export function RegisterForm() {
       <Button
         type="submit"
         disabled={isLoading}
-        className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
+        className="w-full bg-linear-to-r from-primary to-accent hover:opacity-90 text-primary-foreground font-semibold py-2.5 h-auto"
       >
         {isLoading ? "Creating account..." : "Create Account"}
       </Button>

@@ -1,12 +1,12 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import Navbar from "@/components/layout/navbar"
 import Sidebar from "@/components/layout/sidebar"
 import { SidebarProvider } from "@/components/layout/sidebar-provider"
-import { authService } from "@/services/auth.service"
+import { useAuth } from "@/hooks/auth.hooks"
 
 export default function DashboardLayout({
   children,
@@ -14,18 +14,15 @@ export default function DashboardLayout({
   children: React.ReactNode
 }>) {
   const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const { status, isAuthenticated } = useAuth()
 
   useEffect(() => {
-    const loggedIn = !!authService.getUser()
-    if (!loggedIn) {
-      router.push("/login")
-    } else {
-      setIsLoggedIn(true)
+    if (status === "unauthenticated") {
+      router.replace("/login")
     }
-  }, [router])
+  }, [router, status])
 
-  if (!isLoggedIn) {
+  if (status === "idle" || status === "loading" || !isAuthenticated) {
     return null
   }
 

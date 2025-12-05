@@ -1,21 +1,27 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { useDrones } from "@/hooks/drones.hooks"
-import { useAuth } from "@/hooks/auth.hooks"
+import { useMemo } from "react"
+import { Plus, Loader2 } from "lucide-react"
+
 import { DroneCard } from "@/components/drones/drone-card"
 import { Button } from "@/components/ui/button"
-import { Plus, Loader2 } from "lucide-react"
-import { Drone } from "@/types/drones.types"
+import { useTelemetryContext } from "@/context/TelemetryContext"
+import { useAuth } from "@/hooks/auth.hooks"
+import { useDrones } from "@/hooks/drones.hooks"
+import { parseApiError } from "@/utils/api-error"
 
 export default function DronesPage() {
-  const { drones, loading, error, fetchDrones, deleteDrone } = useDrones()
+  const { dronesQuery, deleteDrone } = useDrones()
   const { isAdmin } = useAuth()
-  const [selectedDrone, setSelectedDrone] = useState<Drone | null>(null)
+  const { connectionState } = useTelemetryContext()
 
-  useEffect(() => {
-    fetchDrones()
-  }, [fetchDrones])
+  const drones = dronesQuery.data ?? []
+  const errorMessage = useMemo(() => {
+    if (!dronesQuery.error) return null
+    return parseApiError(dronesQuery.error).message
+  }, [dronesQuery.error])
+
+  const isInitialLoading = dronesQuery.isLoading && !drones.length
 
   const handleDelete = async (droneId: string) => {
     if (confirm("Are you sure you want to delete this drone?")) {
@@ -27,12 +33,6 @@ export default function DronesPage() {
     }
   }
 
-  const handleViewDetail = (drone: Drone) => {
-    setSelectedDrone(drone)
-    // You can add a modal or navigate to detail page
-    console.log("View detail for drone:", drone)
-  }
-
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
@@ -41,6 +41,9 @@ export default function DronesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Drones</h1>
           <p className="text-muted-foreground mt-1">
             Manage and monitor your drone fleet
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Telemetry connection: <span className="font-medium capitalize">{connectionState}</span>
           </p>
         </div>
         {isAdmin && (
@@ -52,14 +55,14 @@ export default function DronesPage() {
       </div>
 
       {/* Error State */}
-      {error && (
+      {errorMessage && (
         <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg">
-          <p className="text-sm font-medium">{error}</p>
+          <p className="text-sm font-medium">{errorMessage}</p>
         </div>
       )}
 
       {/* Loading State */}
-      {loading && drones.length === 0 && (
+      {isInitialLoading && (
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-2">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
@@ -69,7 +72,7 @@ export default function DronesPage() {
       )}
 
       {/* Empty State */}
-      {!loading && drones.length === 0 && (
+      {!isInitialLoading && dronesQuery.isSuccess && drones.length === 0 && (
         <div className="flex items-center justify-center py-12 border-2 border-dashed rounded-lg">
           <div className="text-center">
             <p className="text-muted-foreground mb-4">No drones found</p>
@@ -92,7 +95,6 @@ export default function DronesPage() {
               drone={drone}
               onEdit={isAdmin ? () => console.log("Edit drone:", drone) : undefined}
               onDelete={isAdmin ? handleDelete : undefined}
-              onViewDetail={handleViewDetail}
             />
           ))}
         </div>

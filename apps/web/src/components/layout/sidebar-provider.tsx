@@ -17,20 +17,16 @@ const SidebarContext = createContext<SidebarContextType | undefined>(undefined)
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(true)
-  const [mounted, setMounted] = useState(false)
   const [role, setRole] = useState<UserRole>("pilot")
 
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  useEffect(() => {
-    if (mounted) {
-      document.documentElement.style.setProperty("--sidebar-width", isOpen ? "16rem" : "0rem")
+    if (typeof document === "undefined") {
+      return
     }
-  }, [isOpen, mounted])
+    document.documentElement.style.setProperty("--sidebar-width", isOpen ? "16rem" : "0rem")
+  }, [isOpen])
 
-  const toggleSidebar = () => setIsOpen(!isOpen)
+  const toggleSidebar = () => setIsOpen((prev) => !prev)
 
   return <SidebarContext.Provider value={{ isOpen, toggleSidebar, role, setRole }}>{children}</SidebarContext.Provider>
 }
