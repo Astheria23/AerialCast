@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { format } from "date-fns"
-import { Edit, Loader2, MapPin, Trash2 } from "lucide-react"
+import { Edit, Loader2, MapPin, MapPinned, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -83,59 +84,63 @@ export function MissionCard({
           <MapPin className="h-4 w-4" />
           <span>{mission.waypoints?.length || 0} waypoint(s)</span>
         </div>
-        {(availableActions.length > 0 || onEdit || onDelete) && (
-          <div className="flex flex-wrap gap-2">
-            {availableActions.length > 0 && onStatusAction && (
-              <div className="flex flex-wrap gap-2">
-                {availableActions.map((action) => (
-                  <Button
-                    key={action}
-                    type="button"
-                    variant={action === "cancel" || action === "reject" ? "destructive" : "secondary"}
-                    size="sm"
-                    onClick={() => onStatusAction(mission, action)}
-                    disabled={disableActions || isStatusUpdating}
-                  >
-                    {isStatusUpdating ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Updating...
-                      </>
-                    ) : (
-                      statusActionLabels[action]
-                    )}
-                  </Button>
-                ))}
-              </div>
-            )}
-            {onEdit && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(mission)}
-                disabled={disableActions}
-                className="gap-2"
-              >
-                <Edit className="h-4 w-4" />
-                Edit
-              </Button>
-            )}
-            {onDelete && (
-              <Button
-                type="button"
-                variant="destructive"
-                size="sm"
-                onClick={() => onDelete(mission.mission_id)}
-                disabled={disableActions}
-                className="gap-2"
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete
-              </Button>
-            )}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {availableActions.length > 0 && onStatusAction && (
+            <div className="flex flex-wrap gap-2">
+              {availableActions.map((action) => (
+                <Button
+                  key={action}
+                  type="button"
+                  variant={action === "cancel" || action === "reject" ? "destructive" : "secondary"}
+                  size="sm"
+                  onClick={() => onStatusAction(mission, action)}
+                  disabled={disableActions || isStatusUpdating}
+                >
+                  {isStatusUpdating ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Updating...
+                    </>
+                  ) : (
+                    statusActionLabels[action]
+                  )}
+                </Button>
+              ))}
+            </div>
+          )}
+          {onEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => onEdit(mission)}
+              disabled={disableActions}
+              className="gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit
+            </Button>
+          )}
+          {onDelete && (
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              onClick={() => onDelete(mission.mission_id)}
+              disabled={disableActions}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
+          )}
+          <Button asChild type="button" variant="ghost" size="sm" className="gap-2">
+            <Link href={`/missions/${mission.mission_id}`}>
+              <MapPinned className="h-4 w-4" />
+              View details
+            </Link>
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )

@@ -44,6 +44,7 @@ Visit [http://localhost:3000](http://localhost:3000) and authenticate via the AP
 | Maintenance | Logbook filtered per drone |
 | Checklists | Pre/Post-flight templates |
 | **Geofences** | Interactive polygon editor, map overview, type filters |
+| **Telemetry (new)** | Mission detail page with live map, vitals, and event feed powered by the telemetry hook |
 
 ### Geofence workflow
 
@@ -53,6 +54,13 @@ Visit [http://localhost:3000](http://localhost:3000) and authenticate via the AP
 4. Choose the type (`SAFE_ZONE` or `NO_FLY_ZONE`) and name the area.
 5. Save to persist via `/api/v1/geofences`; polygons render immediately on the map and list.
 6. Missions include a banner linking back to geofences so planners can jump between airspace edits and mission authoring.
+
+### Live telemetry preview
+
+1. Approve or start a mission, then click **View details** on any mission card (or navigate directly to `/missions/[missionId]`).
+2. The telemetry workspace shows mission metadata plus a Leaflet map, vitals grid, event feed, and sample table, all powered by `useTelemetry`.
+3. Use the **Telemetry source** toggle to switch between the live backend replay endpoint and the built-in demo stream. The live option unlocks automatically for `APPROVED`/`IN_PROGRESS` missions and falls back gracefully if no session packets arrive yet.
+4. A session badge, connection indicator, and contextual banners surface whether you are looking at real packets or the deterministic rehearsal stream so ops teams can trust what they see.
 
 ### Linting & formatting
 
