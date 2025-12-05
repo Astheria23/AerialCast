@@ -1,10 +1,10 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query'
 
-import { dronesService } from '@/services/drones.service';
-import { queryKeys } from '@/utils/query-keys';
-import { useApiQuery } from './useApiQuery';
-import { useApiMutation } from './useApiMutation';
-import { CreateDronePayload, Drone, UpdateDronePayload } from '@/types/drones.types';
+import { dronesService } from '@/services/drones.service'
+import { queryKeys } from '@/utils/query-keys'
+import { useApiQuery } from './useApiQuery'
+import { useApiMutation } from './useApiMutation'
+import { CreateDronePayload, Drone, UpdateDronePayload } from '@/types/drones.types'
 
 export const useDrones = () => {
   const queryClient = useQueryClient();

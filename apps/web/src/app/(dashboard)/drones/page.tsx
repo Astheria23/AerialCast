@@ -1,19 +1,33 @@
 "use client"
 
-import { useMemo } from "react"
-import { Plus, Loader2 } from "lucide-react"
+import { useMemo, useState } from "react"
+import { Loader2, Plus } from "lucide-react"
 
 import { DroneCard } from "@/components/drones/drone-card"
+import { DroneForm, type DroneFormValues } from "@/components/drones/drone-form"
 import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useTelemetryContext } from "@/context/TelemetryContext"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useDrones } from "@/hooks/drones.hooks"
 import { parseApiError } from "@/utils/api-error"
+import type { Drone } from "@/types/drones.types"
 
 export default function DronesPage() {
-  const { dronesQuery, deleteDrone } = useDrones()
+  const {
+    dronesQuery,
+    createDrone,
+    createDroneState,
+    updateDrone,
+    updateDroneState,
+    deleteDrone,
+    deleteDroneState,
+  } = useDrones()
   const { isAdmin } = useAuth()
   const { connectionState } = useTelemetryContext()
+  const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
+  const [editingDrone, setEditingDrone] = useState<Drone | null>(null)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const drones = dronesQuery.data ?? []
   const errorMessage = useMemo(() => {
@@ -22,8 +36,60 @@ export default function DronesPage() {
   }, [dronesQuery.error])
 
   const isInitialLoading = dronesQuery.isLoading && !drones.length
+  const isDeleteDisabled = deleteDroneState.isPending
+
+  const openCreateForm = () => {
+    setFormMode("create")
+    setEditingDrone(null)
+    setFormError(null)
+  }
+
+  const openEditForm = (drone: Drone) => {
+    setFormMode("edit")
+    setEditingDrone(drone)
+    setFormError(null)
+  }
+
+  const closeForm = () => {
+    setFormMode(null)
+    setEditingDrone(null)
+    setFormError(null)
+  }
+
+  const handleCreateSubmit = async (values: DroneFormValues) => {
+    try {
+      setFormError(null)
+      await createDrone({
+        name: values.name.trim(),
+        model: values.model.trim(),
+        lora_id: values.lora_id.trim(),
+      })
+      closeForm()
+    } catch (error) {
+      const { message } = parseApiError(error)
+      setFormError(message)
+    }
+  }
+
+  const handleEditSubmit = async (values: DroneFormValues) => {
+    if (!editingDrone) return
+    try {
+      setFormError(null)
+      await updateDrone(editingDrone.drone_id, {
+        name: values.name.trim(),
+        model: values.model.trim(),
+        lora_id: values.lora_id.trim(),
+        status: values.status,
+      })
+      closeForm()
+    } catch (error) {
+      const { message } = parseApiError(error)
+      setFormError(message)
+    }
+  }
 
   const handleDelete = async (droneId: string) => {
+    if (isDeleteDisabled) return
     if (confirm("Are you sure you want to delete this drone?")) {
       try {
         await deleteDrone(droneId)
@@ -47,12 +113,36 @@ export default function DronesPage() {
           </p>
         </div>
         {isAdmin && (
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={openCreateForm}>
             <Plus className="w-4 h-4" />
             Add Drone
           </Button>
         )}
       </div>
+
+      {formMode && (
+        <Card className="border-primary/40">
+          <CardHeader>
+            <CardTitle>{formMode === "create" ? "Add a new drone" : `Edit ${editingDrone?.name ?? "drone"}`}</CardTitle>
+            <CardDescription>
+              {formMode === "create"
+                ? "Provide the basic information to register a new aircraft."
+                : "Update the drone details or change its operational status."}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <DroneForm
+              key={formMode === "edit" ? editingDrone?.drone_id ?? "edit" : "create"}
+              mode={formMode}
+              initialData={formMode === "edit" ? editingDrone : undefined}
+              onSubmit={formMode === "create" ? handleCreateSubmit : handleEditSubmit}
+              onCancel={closeForm}
+              isSubmitting={formMode === "create" ? createDroneState.isPending : updateDroneState.isPending}
+              error={formError}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Error State */}
       {errorMessage && (
@@ -77,7 +167,7 @@ export default function DronesPage() {
           <div className="text-center">
             <p className="text-muted-foreground mb-4">No drones found</p>
             {isAdmin && (
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={openCreateForm}>
                 <Plus className="w-4 h-4" />
                 Add your first drone
               </Button>
@@ -93,7 +183,7 @@ export default function DronesPage() {
             <DroneCard
               key={drone.drone_id}
               drone={drone}
-              onEdit={isAdmin ? () => console.log("Edit drone:", drone) : undefined}
+              onEdit={isAdmin ? () => openEditForm(drone) : undefined}
               onDelete={isAdmin ? handleDelete : undefined}
             />
           ))}
