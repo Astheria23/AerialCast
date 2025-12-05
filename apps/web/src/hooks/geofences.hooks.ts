@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { getFriendlyErrorMessage } from '@/lib/errors';
 import { geofencesService } from '@/services/geofences.service';
 import {
   CreateGeofencePayload,
@@ -11,6 +12,7 @@ export const useGeofences = () => {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const fetchGeofences = useCallback(async () => {
     try {
@@ -20,7 +22,7 @@ export const useGeofences = () => {
       setGeofences(data);
       return data;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch geofences';
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch geofences');
       setError(message);
       console.error('Error fetching geofences:', err);
       throw err;
@@ -35,7 +37,7 @@ export const useGeofences = () => {
       setError(null);
       return await geofencesService.getGeofenceById(geofenceId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch geofence';
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch geofence');
       setError(message);
       console.error('Error fetching geofence:', err);
       throw err;
@@ -52,7 +54,7 @@ export const useGeofences = () => {
       setGeofences((prev) => [created, ...prev]);
       return created;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create geofence';
+  const message = getFriendlyErrorMessage(err, 'Failed to create geofence');
       setError(message);
       console.error('Error creating geofence:', err);
       throw err;
@@ -72,7 +74,7 @@ export const useGeofences = () => {
         );
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update geofence';
+  const message = getFriendlyErrorMessage(err, 'Failed to update geofence');
         setError(message);
         console.error('Error updating geofence:', err);
         throw err;
@@ -90,7 +92,7 @@ export const useGeofences = () => {
       await geofencesService.deleteGeofence(geofenceId);
       setGeofences((prev) => prev.filter((geofence) => geofence.geofence_id !== geofenceId));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete geofence';
+  const message = getFriendlyErrorMessage(err, 'Failed to delete geofence');
       setError(message);
       console.error('Error deleting geofence:', err);
       throw err;
@@ -103,6 +105,7 @@ export const useGeofences = () => {
     geofences,
     loading,
     error,
+    clearError,
     fetchGeofences,
     fetchGeofenceById,
     createGeofence,

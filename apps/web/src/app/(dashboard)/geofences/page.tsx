@@ -6,12 +6,16 @@ import { AlertTriangle, Filter, Loader2, Map, Plus, Search } from "lucide-react"
 import { GeofenceCard } from "@/components/geofences/geofence-card"
 import { GeofenceForm } from "@/components/geofences/geofence-form"
 import { GeofenceMap } from "@/components/geofences/geofence-map"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ErrorDialog } from "@/components/ui/error-dialog"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useGeofences } from "@/hooks/geofences.hooks"
+import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { CreateGeofencePayload, Geofence, GeofenceType } from "@/types/geofences.types"
 
 const TYPE_FILTERS: (GeofenceType | "ALL")[] = ["ALL", "SAFE_ZONE", "NO_FLY_ZONE"]
@@ -20,7 +24,8 @@ export default function GeofencesPage() {
     const { isAdmin, isPilot } = useAuth()
     const canManageGeofences = isAdmin || isPilot
 
-    const { geofences, loading, error, fetchGeofences, createGeofence, updateGeofence, deleteGeofence } = useGeofences()
+    const { geofences, loading, error, clearError, fetchGeofences, createGeofence, updateGeofence, deleteGeofence } = useGeofences()
+    const { toast } = useToast()
 
     const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
     const [activeGeofence, setActiveGeofence] = useState<Geofence | null>(null)
@@ -29,6 +34,7 @@ export default function GeofencesPage() {
     const [searchTerm, setSearchTerm] = useState("")
     const [typeFilter, setTypeFilter] = useState<GeofenceType | "ALL">("ALL")
     const [selectedGeofenceId, setSelectedGeofenceId] = useState<string | null>(null)
+    const [transientError, setTransientError] = useState<string | null>(null)
 
     useEffect(() => {
         fetchGeofences().catch(() => null)
@@ -84,9 +90,19 @@ export default function GeofencesPage() {
         try {
             await createGeofence(payload)
             closeForm()
+            toast({
+                title: "Geofence created",
+                description: `${payload.area_name ?? "Area"} is now live.`,
+            })
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to create geofence"
+            const message = getFriendlyErrorMessage(err, "Failed to create geofence")
             setFormError(message)
+            setTransientError(message)
+            toast({
+                variant: "destructive",
+                title: "Unable to create geofence",
+                description: message,
+            })
         } finally {
             setIsSubmitting(false)
         }
@@ -99,9 +115,19 @@ export default function GeofencesPage() {
         try {
             await updateGeofence(activeGeofence.geofence_id, payload)
             closeForm()
+            toast({
+                title: "Geofence updated",
+                description: `${payload.area_name ?? activeGeofence.area_name} changes saved.`,
+            })
         } catch (err) {
-            const message = err instanceof Error ? err.message : "Failed to update geofence"
+            const message = getFriendlyErrorMessage(err, "Failed to update geofence")
             setFormError(message)
+            setTransientError(message)
+            toast({
+                variant: "destructive",
+                title: "Unable to update geofence",
+                description: message,
+            })
         } finally {
             setIsSubmitting(false)
         }
@@ -112,8 +138,18 @@ export default function GeofencesPage() {
         if (!confirm("Delete this geofence?")) return
         try {
             await deleteGeofence(geofenceId)
+            toast({
+                title: "Geofence deleted",
+                description: "The area has been removed.",
+            })
         } catch (err) {
-            console.error("Failed to delete geofence", err)
+            const message = getFriendlyErrorMessage(err, "Failed to delete geofence")
+            setTransientError(message)
+            toast({
+                variant: "destructive",
+                title: "Unable to delete geofence",
+                description: message,
+            })
         }
     }
 
@@ -125,12 +161,22 @@ export default function GeofencesPage() {
         }
     }
 
+    const aggregatedError = transientError ?? error ?? null
+
     return (
         <div className="flex flex-col gap-6 p-6">
             <div className="flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Geofences</h1>
-                    <p className="mt-1 text-muted-foreground">Monitor safe corridors and no-fly boundaries for every mission.</p>
+                <div className="space-y-2">
+                    <Breadcrumbs
+                        items={[
+                            { label: "Dashboard", href: "/" },
+                            { label: "Geofences" },
+                        ]}
+                    />
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">Geofences</h1>
+                        <p className="mt-1 text-muted-foreground">Monitor safe corridors and no-fly boundaries for every mission.</p>
+                    </div>
                 </div>
                 {canManageGeofences && (
                     <Button onClick={openCreateForm} className="gap-2">
@@ -139,6 +185,17 @@ export default function GeofencesPage() {
                     </Button>
                 )}
             </div>
+
+            <ErrorDialog
+                open={Boolean(aggregatedError)}
+                message={aggregatedError ?? undefined}
+                onOpenChange={(open) => {
+                    if (!open) {
+                        setTransientError(null)
+                        clearError()
+                    }
+                }}
+            />
 
             {!canManageGeofences && (
                 <div className="flex gap-3 rounded-lg border border-amber-300 bg-amber-50/80 px-4 py-3 text-sm text-amber-900">
@@ -168,12 +225,7 @@ export default function GeofencesPage() {
                     )}
                 </DialogContent>
             </Dialog>
-
-            {error && (
-                <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-                    {error}
-                </div>
-            )}
+            {/* Inline error banner replaced by modal */}
 
             <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
                 <Card className="h-[420px]">

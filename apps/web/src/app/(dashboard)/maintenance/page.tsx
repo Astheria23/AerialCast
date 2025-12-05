@@ -5,18 +5,23 @@ import { Loader2, Plus, Search, ShieldAlert } from "lucide-react"
 
 import { MaintenanceLogCard } from "@/components/checklists/maintenance-log-card"
 import { MaintenanceLogForm, type MaintenanceLogFormPayload } from "@/components/checklists/maintenance-log-form"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ErrorDialog } from "@/components/ui/error-dialog"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useDrones } from "@/hooks/drones.hooks"
 import { useMaintenance } from "@/hooks/maintenance.hooks"
+import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { MaintenanceLog } from "@/types/maintenance.types"
 
 export default function MaintenancePage() {
   const { isAdmin } = useAuth()
   const { drones, fetchDrones } = useDrones()
-  const { logs, loading, error, fetchLogs, createLog, updateLog, deleteLog } = useMaintenance()
+  const { toast } = useToast()
+  const { logs, loading, error, clearError, fetchLogs, createLog, updateLog, deleteLog } = useMaintenance()
 
   const [selectedDroneId, setSelectedDroneId] = useState<string>("")
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
@@ -25,6 +30,7 @@ export default function MaintenancePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [searchTerm, setSearchTerm] = useState("")
   const [sortOrder, setSortOrder] = useState<"recent" | "oldest">("recent")
+  const [transientError, setTransientError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchDrones().catch(() => null)
@@ -75,9 +81,19 @@ export default function MaintenancePage() {
         log_date: payload.log_date,
       })
       closeForm()
+      toast({
+        title: "Maintenance logged",
+        description: `${payload.log_date} entry saved.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create maintenance log"
+      const message = getFriendlyErrorMessage(err, "Failed to create maintenance log")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to create log",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -93,9 +109,19 @@ export default function MaintenancePage() {
         log_date: payload.log_date,
       })
       closeForm()
+      toast({
+        title: "Maintenance updated",
+        description: `Entry for ${payload.log_date} updated.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update maintenance log"
+      const message = getFriendlyErrorMessage(err, "Failed to update maintenance log")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to update log",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -108,8 +134,18 @@ export default function MaintenancePage() {
     }
     try {
       await deleteLog(logId)
+      toast({
+        title: "Maintenance deleted",
+        description: "The log entry has been removed.",
+      })
     } catch (err) {
-      console.error("Failed to delete maintenance log", err)
+      const message = getFriendlyErrorMessage(err, "Failed to delete maintenance log")
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to delete log",
+        description: message,
+      })
     }
   }
 
@@ -131,14 +167,24 @@ export default function MaintenancePage() {
   const isListEmpty = !loading && logs.length === 0
   const noFilteredResults = logs.length > 0 && filteredLogs.length === 0
 
+  const aggregatedError = transientError ?? error ?? null
+
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Maintenance logs</h1>
-          <p className="text-muted-foreground mt-1">
-            Track inspections and repairs across your fleet.
-          </p>
+        <div className="space-y-2">
+          <Breadcrumbs
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Maintenance" },
+            ]}
+          />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Maintenance logs</h1>
+            <p className="text-muted-foreground mt-1">
+              Track inspections and repairs across your fleet.
+            </p>
+          </div>
         </div>
         {canManage && (
           <Button className="gap-2" onClick={openCreateForm} disabled={!selectedDroneId}>
@@ -147,6 +193,17 @@ export default function MaintenancePage() {
           </Button>
         )}
       </div>
+
+      <ErrorDialog
+        open={Boolean(aggregatedError)}
+        message={aggregatedError ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTransientError(null)
+            clearError()
+          }
+        }}
+      />
 
       {!canManage && (
         <div className="flex gap-3 rounded-lg border border-dashed border-amber-500/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">
@@ -229,8 +286,7 @@ export default function MaintenancePage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {error && <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+  {/* Inline error banner replaced by modal */}
 
       {loading && logs.length === 0 && (
         <div className="flex items-center justify-center py-12">

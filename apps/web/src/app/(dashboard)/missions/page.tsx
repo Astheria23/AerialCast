@@ -6,18 +6,33 @@ import { Filter, Loader2, MapPin, Plus, Search } from "lucide-react"
 
 import { MissionCard } from "@/components/missions/mission-card"
 import { MissionForm, type MissionFormPayload } from "@/components/missions/mission-form"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ErrorDialog } from "@/components/ui/error-dialog"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useDrones } from "@/hooks/drones.hooks"
 import { useMissions } from "@/hooks/missions.hooks"
+import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { Mission, MissionStatus, MissionStatusAction } from "@/types/missions.types"
 
 export default function MissionsPage() {
   const { user, isAdmin, isPilot } = useAuth()
   const { drones, fetchDrones } = useDrones()
-  const { missions, loading, error, fetchMissions, createMission, updateMission, deleteMission, changeMissionStatus } = useMissions()
+  const {
+    missions,
+    loading,
+    error,
+    clearError,
+    fetchMissions,
+    createMission,
+    updateMission,
+    deleteMission,
+    changeMissionStatus,
+  } = useMissions()
+  const { toast } = useToast()
 
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
   const [editingMission, setEditingMission] = useState<Mission | null>(null)
@@ -28,6 +43,7 @@ export default function MissionsPage() {
   const [sortOrder, setSortOrder] = useState<"recent" | "oldest">("recent")
   const [statusActionMissionId, setStatusActionMissionId] = useState<string | null>(null)
   const [statusActionError, setStatusActionError] = useState<string | null>(null)
+  const [transientError, setTransientError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchMissions().catch(() => null)
@@ -80,9 +96,19 @@ export default function MissionsPage() {
         waypoints: payload.waypoints,
       })
       closeForm()
+      toast({
+        title: "Mission created",
+        description: `${payload.mission_name} is ready to plan.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create mission"
+      const message = getFriendlyErrorMessage(err, "Failed to create mission")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to create mission",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -102,9 +128,19 @@ export default function MissionsPage() {
         waypoints: payload.waypoints,
       })
       closeForm()
+      toast({
+        title: "Mission updated",
+        description: `${payload.mission_name} changes saved.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update mission"
+      const message = getFriendlyErrorMessage(err, "Failed to update mission")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to update mission",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -117,8 +153,18 @@ export default function MissionsPage() {
     }
     try {
       await deleteMission(missionId)
+      toast({
+        title: "Mission deleted",
+        description: "The mission has been removed from your list.",
+      })
     } catch (err) {
-      console.error("Failed to delete mission", err)
+      const message = getFriendlyErrorMessage(err, "Failed to delete mission")
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to delete mission",
+        description: message,
+      })
     }
   }
 
@@ -167,9 +213,18 @@ export default function MissionsPage() {
     setStatusActionError(null)
     try {
       await changeMissionStatus(mission.mission_id, action)
+      toast({
+        title: "Status updated",
+        description: `${mission.mission_name} is now ${action === "complete" ? "completed" : action}.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update mission status"
+      const message = getFriendlyErrorMessage(err, "Failed to update mission status")
       setStatusActionError(message)
+      toast({
+        variant: "destructive",
+        title: "Status change failed",
+        description: message,
+      })
     } finally {
       setStatusActionMissionId(null)
     }
@@ -203,13 +258,22 @@ export default function MissionsPage() {
   const isListEmpty = !loading && missions.length === 0
   const hasFiltersApplied = searchTerm.trim().length > 0 || statusFilter !== "ALL" || sortOrder !== "recent"
   const noFilteredResults = missions.length > 0 && filteredMissions.length === 0
+  const aggregatedError = transientError ?? statusActionError ?? error ?? null
 
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Missions</h1>
-          <p className="text-muted-foreground mt-1">Plan and manage missions for your fleet</p>
+        <div className="space-y-2">
+          <Breadcrumbs
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Missions" },
+            ]}
+          />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Missions</h1>
+            <p className="text-muted-foreground mt-1">Plan and manage missions for your fleet</p>
+          </div>
         </div>
         {canManageMissions && (
           <div className="flex flex-wrap gap-2">
@@ -275,16 +339,17 @@ export default function MissionsPage() {
         </DialogContent>
       </Dialog>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-      {statusActionError && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
-          {statusActionError}
-        </div>
-      )}
+      <ErrorDialog
+        open={Boolean(aggregatedError)}
+        message={aggregatedError ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTransientError(null)
+            setStatusActionError(null)
+            clearError()
+          }
+        }}
+      />
 
       {missions.length > 0 && (
         <div className="grid gap-4 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-4">

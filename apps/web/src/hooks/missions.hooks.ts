@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 
+import { getFriendlyErrorMessage } from '@/lib/errors';
 import { missionsService } from '@/services/missions.service';
 import {
   CreateMissionPayload,
@@ -12,6 +13,7 @@ export const useMissions = () => {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const clearError = useCallback(() => setError(null), []);
 
   const fetchMissions = useCallback(async () => {
     try {
@@ -20,7 +22,7 @@ export const useMissions = () => {
       const data = await missionsService.getMissions();
       setMissions(data);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch missions';
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch missions');
       setError(message);
       console.error('Error fetching missions:', err);
       throw err;
@@ -35,7 +37,7 @@ export const useMissions = () => {
       setError(null);
       return await missionsService.getMissionById(missionId);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch mission';
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch mission');
       setError(message);
       console.error('Error fetching mission:', err);
       throw err;
@@ -52,7 +54,7 @@ export const useMissions = () => {
       setMissions((prev) => [mission, ...prev]);
       return mission;
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create mission';
+  const message = getFriendlyErrorMessage(err, 'Failed to create mission');
       setError(message);
       console.error('Error creating mission:', err);
       throw err;
@@ -72,7 +74,7 @@ export const useMissions = () => {
         );
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to update mission';
+  const message = getFriendlyErrorMessage(err, 'Failed to update mission');
         setError(message);
         console.error('Error updating mission:', err);
         throw err;
@@ -90,7 +92,7 @@ export const useMissions = () => {
       await missionsService.deleteMission(missionId);
       setMissions((prev) => prev.filter((mission) => mission.mission_id !== missionId));
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete mission';
+  const message = getFriendlyErrorMessage(err, 'Failed to delete mission');
       setError(message);
       console.error('Error deleting mission:', err);
       throw err;
@@ -110,7 +112,7 @@ export const useMissions = () => {
         );
         return updated;
       } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to change mission status';
+  const message = getFriendlyErrorMessage(err, 'Failed to change mission status');
         setError(message);
         console.error('Error changing mission status:', err);
         throw err;
@@ -125,6 +127,7 @@ export const useMissions = () => {
     missions,
     loading,
     error,
+    clearError,
     fetchMissions,
     fetchMissionById,
     createMission,

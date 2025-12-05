@@ -102,5 +102,3 @@ export const useDrones = () => {
     createDrone,
     updateDrone,
     deleteDrone,
-  };
-};

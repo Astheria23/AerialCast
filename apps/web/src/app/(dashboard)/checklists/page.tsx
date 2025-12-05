@@ -5,18 +5,23 @@ import { Filter, Loader2, Plus, Search, ShieldAlert } from "lucide-react"
 
 import { ChecklistCard } from "@/components/checklists/checklist-card"
 import { ChecklistForm, type ChecklistFormPayload } from "@/components/checklists/checklist-form"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { ErrorDialog } from "@/components/ui/error-dialog"
 import { Input } from "@/components/ui/input"
+import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useChecklists } from "@/hooks/checklists.hooks"
+import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { Checklist, ChecklistType } from "@/types/checklists.types"
 
 const CHECKLIST_TYPES: ChecklistType[] = ["PRE_FLIGHT", "POST_FLIGHT"]
 
 export default function ChecklistsPage() {
   const { isAdmin } = useAuth()
-  const { checklists, loading, error, fetchChecklists, createChecklist, updateChecklist, deleteChecklist } = useChecklists()
+  const { toast } = useToast()
+  const { checklists, loading, error, clearError, fetchChecklists, createChecklist, updateChecklist, deleteChecklist } = useChecklists()
 
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
   const [editingChecklist, setEditingChecklist] = useState<Checklist | null>(null)
@@ -25,6 +30,7 @@ export default function ChecklistsPage() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<ChecklistType | "ALL">("ALL")
   const [sortOrder, setSortOrder] = useState<"recent" | "alphabetical">("recent")
+  const [transientError, setTransientError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchChecklists().catch(() => null)
@@ -58,9 +64,19 @@ export default function ChecklistsPage() {
     try {
       await createChecklist(payload)
       closeForm()
+      toast({
+        title: "Checklist created",
+        description: `${payload.title} is available to pilots.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to create checklist"
+      const message = getFriendlyErrorMessage(err, "Failed to create checklist")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to create checklist",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -73,9 +89,19 @@ export default function ChecklistsPage() {
     try {
       await updateChecklist(editingChecklist.checklist_id, payload)
       closeForm()
+      toast({
+        title: "Checklist updated",
+        description: `${payload.title} changes saved.`,
+      })
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to update checklist"
+      const message = getFriendlyErrorMessage(err, "Failed to update checklist")
       setFormError(message)
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to update checklist",
+        description: message,
+      })
     } finally {
       setIsSubmitting(false)
     }
@@ -88,8 +114,18 @@ export default function ChecklistsPage() {
     }
     try {
       await deleteChecklist(checklistId)
+      toast({
+        title: "Checklist deleted",
+        description: "The template has been removed.",
+      })
     } catch (err) {
-      console.error("Failed to delete checklist", err)
+      const message = getFriendlyErrorMessage(err, "Failed to delete checklist")
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: "Unable to delete checklist",
+        description: message,
+      })
     }
   }
 
@@ -124,15 +160,24 @@ export default function ChecklistsPage() {
   const hasFiltersApplied = searchTerm.trim().length > 0 || typeFilter !== "ALL" || sortOrder !== "recent"
   const isListEmpty = !loading && checklists.length === 0
   const noFilteredResults = checklists.length > 0 && filteredChecklists.length === 0
+  const aggregatedError = transientError ?? error ?? null
 
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Checklist templates</h1>
-          <p className="text-muted-foreground mt-1">
-            Define pre-flight and post-flight steps to enforce consistent procedures.
-          </p>
+        <div className="space-y-2">
+          <Breadcrumbs
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Checklists" },
+            ]}
+          />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Checklist templates</h1>
+            <p className="text-muted-foreground mt-1">
+              Define pre-flight and post-flight steps to enforce consistent procedures.
+            </p>
+          </div>
         </div>
         {canManage && (
           <Button onClick={openCreateForm} className="gap-2">
@@ -141,6 +186,17 @@ export default function ChecklistsPage() {
           </Button>
         )}
       </div>
+
+      <ErrorDialog
+        open={Boolean(aggregatedError)}
+        message={aggregatedError ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTransientError(null)
+            clearError()
+          }
+        }}
+      />
 
       {!canManage && (
         <div className="flex gap-3 rounded-lg border border-dashed border-amber-500/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">
@@ -181,8 +237,7 @@ export default function ChecklistsPage() {
           )}
         </DialogContent>
       </Dialog>
-
-      {error && <div className="rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">{error}</div>}
+  {/* Legacy inline alerts replaced by modal */}
 
       {checklists.length > 0 && (
         <div className="grid gap-4 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-2">

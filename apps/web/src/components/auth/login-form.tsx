@@ -10,6 +10,7 @@ import { isAxiosError } from "axios"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { useToast } from "@/components/ui/use-toast"
 import { authService } from "@/services/auth.service"
 
 type ApiErrorResponse = {
@@ -33,6 +34,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const { toast } = useToast()
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -41,9 +43,19 @@ export function LoginForm() {
 
     try {
       await authService.login({ email, password })
+      toast({
+        title: "You're in",
+        description: "Welcome back to AerialCast.",
+      })
       router.push("/")
     } catch (err) {
-      setError(getAuthErrorMessage(err, "Login failed"))
+      const message = getAuthErrorMessage(err, "Login failed")
+      setError(message)
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: message,
+      })
     } finally {
       setLoading(false)
     }

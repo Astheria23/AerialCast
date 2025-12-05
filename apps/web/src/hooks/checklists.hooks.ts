@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 
+import { getFriendlyErrorMessage } from '@/lib/errors'
 import { checklistsService } from '@/services/checklists.service'
 import {
   Checklist,
@@ -11,6 +12,7 @@ export const useChecklists = () => {
   const [checklists, setChecklists] = useState<Checklist[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const clearError = useCallback(() => setError(null), [])
 
   const fetchChecklists = useCallback(async () => {
     try {
@@ -19,7 +21,7 @@ export const useChecklists = () => {
       const data = await checklistsService.getChecklists()
       setChecklists(data)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch checklists'
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch checklists')
       setError(message)
       console.error('Error fetching checklists:', err)
       throw err
@@ -34,7 +36,7 @@ export const useChecklists = () => {
       setError(null)
       return await checklistsService.getChecklistById(checklistId)
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to fetch checklist'
+  const message = getFriendlyErrorMessage(err, 'Failed to fetch checklist')
       setError(message)
       console.error('Error fetching checklist:', err)
       throw err
@@ -51,7 +53,7 @@ export const useChecklists = () => {
       setChecklists((prev) => [created, ...prev])
       return created
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to create checklist'
+  const message = getFriendlyErrorMessage(err, 'Failed to create checklist')
       setError(message)
       console.error('Error creating checklist:', err)
       throw err
@@ -68,7 +70,7 @@ export const useChecklists = () => {
       setChecklists((prev) => prev.map((checklist) => (checklist.checklist_id === checklistId ? updated : checklist)))
       return updated
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to update checklist'
+  const message = getFriendlyErrorMessage(err, 'Failed to update checklist')
       setError(message)
       console.error('Error updating checklist:', err)
       throw err
@@ -84,7 +86,7 @@ export const useChecklists = () => {
       await checklistsService.deleteChecklist(checklistId)
       setChecklists((prev) => prev.filter((checklist) => checklist.checklist_id !== checklistId))
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to delete checklist'
+  const message = getFriendlyErrorMessage(err, 'Failed to delete checklist')
       setError(message)
       console.error('Error deleting checklist:', err)
       throw err
@@ -97,6 +99,7 @@ export const useChecklists = () => {
     checklists,
     loading,
     error,
+    clearError,
     fetchChecklists,
     fetchChecklistById,
     createChecklist,

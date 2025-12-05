@@ -1,27 +1,44 @@
 "use client"
 
-import { useEffect } from "react"
-import { useDrones } from "@/hooks/drones.hooks"
-import { useAuth } from "@/hooks/auth.hooks"
-import { DroneCard } from "@/components/drones/drone-card"
-import { Button } from "@/components/ui/button"
+import { useEffect, useState } from "react"
 import { Plus, Loader2 } from "lucide-react"
+
+import { DroneCard } from "@/components/drones/drone-card"
+import { Breadcrumbs } from "@/components/layout/breadcrumbs"
+import { Button } from "@/components/ui/button"
+import { ErrorDialog } from "@/components/ui/error-dialog"
+import { useToast } from "@/components/ui/use-toast"
+import { useAuth } from "@/hooks/auth.hooks"
+import { useDrones } from "@/hooks/drones.hooks"
+import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { Drone } from "@/types/drones.types"
 
 export default function DronesPage() {
-  const { drones, loading, error, fetchDrones, deleteDrone } = useDrones()
+  const { drones, loading, error, clearError, fetchDrones, deleteDrone } = useDrones()
   const { isAdmin } = useAuth()
+  const { toast } = useToast()
+  const [transientError, setTransientError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchDrones()
+    fetchDrones().catch(() => null)
   }, [fetchDrones])
 
   const handleDelete = async (droneId: string) => {
     if (confirm("Are you sure you want to delete this drone?")) {
       try {
         await deleteDrone(droneId)
+        toast({
+          title: "Drone removed",
+          description: "The drone has been deleted from your fleet.",
+        })
       } catch (err) {
-        console.error("Failed to delete drone:", err)
+        const message = getFriendlyErrorMessage(err, "Failed to delete drone")
+        setTransientError(message)
+        toast({
+          variant: "destructive",
+          title: "Unable to delete drone",
+          description: message,
+        })
       }
     }
   }
@@ -31,15 +48,25 @@ export default function DronesPage() {
     console.log("View detail for drone:", drone)
   }
 
+  const aggregatedError = transientError ?? error ?? null
+
   return (
     <div className="flex flex-col gap-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Drones</h1>
-          <p className="text-muted-foreground mt-1">
-            Manage and monitor your drone fleet
-          </p>
+        <div className="space-y-2">
+          <Breadcrumbs
+            items={[
+              { label: "Dashboard", href: "/" },
+              { label: "Drones" },
+            ]}
+          />
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Drones</h1>
+            <p className="text-muted-foreground mt-1">
+              Manage and monitor your drone fleet
+            </p>
+          </div>
         </div>
         {isAdmin && (
           <Button className="gap-2">
@@ -49,12 +76,16 @@ export default function DronesPage() {
         )}
       </div>
 
-      {/* Error State */}
-      {error && (
-        <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-lg">
-          <p className="text-sm font-medium">{error}</p>
-        </div>
-      )}
+      <ErrorDialog
+        open={Boolean(aggregatedError)}
+        message={aggregatedError ?? undefined}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTransientError(null)
+            clearError()
+          }
+        }}
+      />
 
       {/* Loading State */}
       {loading && drones.length === 0 && (
