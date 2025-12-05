@@ -1,14 +1,26 @@
 import api from '@/lib/axios';
 import { LoginCredentials, RegisterCredentials, AuthResponse, User } from '@/types/auth.types';
 
+const normalizeUserRole = (user: User | null | undefined): User | null => {
+  if (!user) return null;
+  const normalizedRole = typeof user.role === 'string' ? (user.role.toLowerCase() as User['role']) : user.role;
+  return { ...user, role: normalizedRole };
+};
+
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/auth/login', credentials);
-    if (response.data.access_token) {
+    const normalizedUser = normalizeUserRole(response.data.user);
+
+    if (response.data.access_token && normalizedUser) {
       localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+      localStorage.setItem('user', JSON.stringify(normalizedUser));
     }
-    return response.data;
+
+    return {
+      ...response.data,
+      user: normalizedUser ?? response.data.user,
+    };
   },
 
   register: async (credentials: RegisterCredentials): Promise<AuthResponse> => {
@@ -17,7 +29,8 @@ export const authService = {
       password: credentials.password,
       full_name: credentials.fullName,
     });
-    return response.data;
+    const normalizedUser = normalizeUserRole(response.data.user);
+    return { ...response.data, user: normalizedUser ?? response.data.user };
   },
 
   logout: () => {
@@ -31,7 +44,8 @@ export const authService = {
       const userStr = localStorage.getItem('user');
       if (userStr) {
         try {
-          return JSON.parse(userStr);
+          const parsed = JSON.parse(userStr) as User;
+          return normalizeUserRole(parsed);
         } catch {
           return null;
         }

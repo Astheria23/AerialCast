@@ -14,7 +14,7 @@ import { useMissions } from "@/hooks/missions.hooks"
 import type { Mission, MissionStatus, MissionStatusAction } from "@/types/missions.types"
 
 export default function MissionsPage() {
-  const { isAdmin } = useAuth()
+  const { isAdmin, isPilot } = useAuth()
   const { drones, fetchDrones } = useDrones()
   const { missions, loading, error, fetchMissions, createMission, updateMission, deleteMission, changeMissionStatus } = useMissions()
 
@@ -44,6 +44,7 @@ export default function MissionsPage() {
     return map
   }, [drones])
 
+  const canManageMissions = isAdmin || isPilot
   const isFormOpen = Boolean(formMode)
 
   const openCreateForm = () => {
@@ -65,6 +66,7 @@ export default function MissionsPage() {
   }
 
   const handleCreateMission = async (payload: MissionFormPayload) => {
+    if (!canManageMissions) return
     setIsSubmitting(true)
     setFormError(null)
     try {
@@ -85,7 +87,7 @@ export default function MissionsPage() {
   }
 
   const handleEditMission = async (payload: MissionFormPayload) => {
-    if (!editingMission) return
+    if (!editingMission || !canManageMissions) return
     setIsSubmitting(true)
     setFormError(null)
     try {
@@ -107,7 +109,7 @@ export default function MissionsPage() {
   }
 
   const handleDelete = async (missionId: string) => {
-    if (!isAdmin) return
+    if (!canManageMissions) return
     if (!confirm("Delete this mission?")) {
       return
     }
@@ -186,7 +188,7 @@ export default function MissionsPage() {
           <h1 className="text-3xl font-bold tracking-tight">Missions</h1>
           <p className="text-muted-foreground mt-1">Plan and manage missions for your fleet</p>
         </div>
-        {isAdmin && (
+        {canManageMissions && (
           <Button className="gap-2" onClick={openCreateForm}>
             <Plus className="h-4 w-4" />
             Add mission
@@ -194,8 +196,15 @@ export default function MissionsPage() {
         )}
       </div>
 
+      {!canManageMissions && (
+        <div className="rounded-lg border border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+          You need an <span className="font-semibold">admin</span> or <span className="font-semibold">pilot</span> role to create, edit, or delete missions.
+          If you believe this is an error, please contact an administrator.
+        </div>
+      )}
+
       <Dialog
-        open={isFormOpen && isAdmin}
+        open={isFormOpen && canManageMissions}
         onOpenChange={(open) => {
           if (!open) {
             closeForm()
@@ -209,7 +218,7 @@ export default function MissionsPage() {
               {formMode === "edit" ? "Update mission metadata, drone assignments, and waypoints." : "Fill in mission details, assign a drone, and plot waypoints from the map."}
             </DialogDescription>
           </DialogHeader>
-          {formMode && isAdmin && (
+          {formMode && canManageMissions && (
             <MissionForm
               key={formMode === "edit" ? editingMission?.mission_id : "create"}
               drones={drones}
@@ -322,7 +331,7 @@ export default function MissionsPage() {
       {isListEmpty && (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 text-center">
           <p className="text-muted-foreground">No missions yet</p>
-          {isAdmin && (
+          {canManageMissions && (
             <Button className="mt-4 gap-2" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
               Create your first mission
@@ -338,8 +347,8 @@ export default function MissionsPage() {
               key={mission.mission_id}
               mission={mission}
               droneName={droneLookup[mission.drone_id]}
-              onEdit={isAdmin ? openEditForm : undefined}
-              onDelete={isAdmin ? handleDelete : undefined}
+              onEdit={canManageMissions ? openEditForm : undefined}
+              onDelete={canManageMissions ? handleDelete : undefined}
               onStatusAction={isAdmin ? handleStatusAction : undefined}
               disableActions={isSubmitting}
               isStatusUpdating={statusActionMissionId === mission.mission_id}
