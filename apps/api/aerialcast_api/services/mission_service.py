@@ -1,8 +1,11 @@
 """Mission domain services."""
 
+from datetime import datetime
+
 from flask_smorest import abort
 
-from ..models.enums import MissionStatus, UserRole
+from ..models.enums import MissionStatus, SessionStatus, UserRole
+from ..models.execution import FlightSession
 from ..models.planning import Mission, MissionWaypoint
 from ..repositories import (
 	ChecklistRepository,
@@ -24,6 +27,22 @@ class MissionService:
         if mission is None:
             abort(404, message="Mission not found")
         return mission
+
+    @staticmethod
+    def _close_active_sessions(mission):
+        """Mark any live flight sessions for a mission as completed."""
+
+        if not mission or not mission.mission_id:
+            return 0
+
+        live_sessions = FlightSession.query.filter_by(
+            mission_id=mission.mission_id, status=SessionStatus.LIVE
+        ).all()
+        now = datetime.utcnow()
+        for session in live_sessions:
+            session.status = SessionStatus.COMPLETED
+            session.end_time = now
+        return len(live_sessions)
 
     @classmethod
     def _resolve_checklists(cls, checklist_ids):
@@ -196,6 +215,9 @@ class MissionService:
             }, 400
 
         mission.status = target
+
+        if target in {MissionStatus.COMPLETED, MissionStatus.CANCELED}:
+            cls._close_active_sessions(mission)
         try:
             cls.mission_repository.commit()
             return mission, 200

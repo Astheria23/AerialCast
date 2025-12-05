@@ -23,9 +23,17 @@ class FlightSessionService:
         if active_mission:
             return active_mission, "Existing session found"
 
-        mission = Mission.query.filter_by(
-            drone_id=drone.drone_id, status=MissionStatus.APPROVED
-        ).first()
+        mission = (
+            Mission.query.filter(
+                Mission.drone_id == drone.drone_id,
+                Mission.status.in_([MissionStatus.APPROVED, MissionStatus.IN_PROGRESS]),
+            )
+            .order_by(Mission.created_at.desc())
+            .first()
+        )
+
+        if mission is None:
+            return None, "No approved/in-progress mission available for this drone"
 
         pilot_id = None
         if mission and mission.created_by_user_id:
