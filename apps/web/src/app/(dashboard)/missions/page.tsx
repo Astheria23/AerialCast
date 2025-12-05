@@ -1,7 +1,8 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
-import { Filter, Loader2, Plus, Search } from "lucide-react"
+import { Filter, Loader2, MapPin, Plus, Search } from "lucide-react"
 
 import { MissionCard } from "@/components/missions/mission-card"
 import { MissionForm, type MissionFormPayload } from "@/components/missions/mission-form"
@@ -183,17 +184,36 @@ export default function MissionsPage() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Missions</h1>
           <p className="text-muted-foreground mt-1">Plan and manage missions for your fleet</p>
         </div>
         {canManageMissions && (
-          <Button className="gap-2" onClick={openCreateForm}>
-            <Plus className="h-4 w-4" />
-            Add mission
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" className="gap-2">
+              <Link href="/geofences">
+                <MapPin className="h-4 w-4" />
+                Manage geofences
+              </Link>
+            </Button>
+            <Button className="gap-2" onClick={openCreateForm}>
+              <Plus className="h-4 w-4" />
+              Add mission
+            </Button>
+          </div>
         )}
+      </div>
+
+      <div className="flex items-start gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary">
+        <MapPin className="h-4 w-4 shrink-0" />
+        <span>
+          Missions respect the safe corridors and no-fly zones you define. Need to adjust boundaries before launching?
+          <Link href="/geofences" className="ml-1 underline">
+            Open geofences
+          </Link>
+          .
+        </span>
       </div>
 
       {!canManageMissions && (

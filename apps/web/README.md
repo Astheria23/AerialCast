@@ -1,36 +1,65 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## AerialCast Web
 
-## Getting Started
+The web console for the AerialCast platform built with Next.js 14, Tailwind CSS, and React Server Components. Pilots and admins can plan missions, manage fleets, log maintenance, and (new!) draw geofences that sync with the Flask API (`apps/api`).
 
-First, run the development server:
+### Tech stack
+
+- Next.js App Router + TypeScript
+- Tailwind CSS + shadcn/ui primitives
+- Axios client configured in `src/lib/axios.ts`
+- Shared hooks/services per domain (missions, drones, geofences, maintenance, etc.)
+
+## Getting started
+
+### Prerequisites
+
+- Node.js 18+
+- pnpm (preferred) – install via `npm i -g pnpm`
+- API server running locally (see `../api/README.md`)
+
+### Install dependencies
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment variables
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` and set `NEXT_PUBLIC_API_URL` to the Flask server base (defaults to `http://127.0.0.1:5000/`).
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Run the dev server
 
-## Learn More
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Visit [http://localhost:3000](http://localhost:3000) and authenticate via the API.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Feature tour
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Area | Highlights |
+| --- | --- |
+| Missions | CRUD with checklist assignment, waypoint map picker, status transitions |
+| Drones | Fleet overview and metadata |
+| Maintenance | Logbook filtered per drone |
+| Checklists | Pre/Post-flight templates |
+| **Geofences** | Interactive polygon editor, map overview, type filters |
 
-## Deploy on Vercel
+### Geofence workflow
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Navigate to **Dashboard → Geofences** (left sidebar or the landing “Manage geofences” quick action).
+2. Use **Add geofence** to open the form dialog.
+3. Click the map to drop at least three points; reorder automatically follows click order.
+4. Choose the type (`SAFE_ZONE` or `NO_FLY_ZONE`) and name the area.
+5. Save to persist via `/api/v1/geofences`; polygons render immediately on the map and list.
+6. Missions include a banner linking back to geofences so planners can jump between airspace edits and mission authoring.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### Linting & formatting
+
+```bash
+pnpm lint
+```
+
+## Deployment
+
+Use `pnpm build` to produce an optimized output before deploying via your preferred platform (Vercel, Azure Static Web Apps, etc.). Ensure the backend base URL reflects the deployed API.
