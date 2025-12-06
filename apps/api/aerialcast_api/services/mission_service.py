@@ -68,6 +68,9 @@ class MissionService:
 
     @classmethod
     def create_mission(cls, data: dict, user_id):
+        creator = cls.user_repository.get(user_id)
+        if not creator:
+            return {"error": "User not found"}, 404
         drone = cls.drone_repository.get(data["drone_id"])
 
         if not drone:
@@ -78,6 +81,7 @@ class MissionService:
         new_mission.notes = data.get("notes")
         new_mission.drone_id = data["drone_id"]
         new_mission.created_by_user_id = user_id
+        new_mission.creator = creator
 
         if data.get("save_as_draft"):
             new_mission.status = MissionStatus.DRAFT

@@ -74,6 +74,10 @@ export function MissionCard({
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         <div>
+          <p className="text-muted-foreground text-xs">Pilot</p>
+          <p className="font-medium">{mission.pilot_name ?? "Unassigned"}</p>
+        </div>
+        <div>
           <p className="text-muted-foreground text-xs">Drone</p>
           <p className="font-medium">{droneName || mission.drone_id}</p>
         </div>

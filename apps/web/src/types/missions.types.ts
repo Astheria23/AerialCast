@@ -21,6 +21,7 @@ export interface Mission {
   notes?: string | null;
   drone_id: string;
   created_by_user_id?: string;
+  pilot_name?: string | null;
   created_at?: string;
   status?: MissionStatus | string | null;
   waypoints: MissionWaypoint[];

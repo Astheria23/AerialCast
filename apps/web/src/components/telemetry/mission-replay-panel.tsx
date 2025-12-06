@@ -1,6 +1,6 @@
 import { Loader2, Play, Pause, RotateCcw, FastForward, Rewind } from 'lucide-react';
 import type { ChangeEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 
 import { MissionReplayOptions, useMissionReplay } from '@/hooks/replay.hooks';
 import { cn } from '@/lib/utils';
@@ -34,10 +34,8 @@ const formatDateTime = (value?: string | null) => {
 
 export function MissionReplayPanel(props: MissionReplayPanelProps) {
   const { missionId, missionName, ...replayOptions } = props;
-  const [autoLoadReplay, setAutoLoadReplay] = useState(true);
 
   const {
-    sessions,
     sessionsLoading,
     replayLoading,
     error,
@@ -47,10 +45,21 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
     stats,
     events,
     playback,
-    loadReplay,
-    selectSession,
     timeline,
-  } = useMissionReplay({ missionId, autoLoadReplay, ...replayOptions });
+  } = useMissionReplay({ missionId, ...replayOptions });
+
+  const play = playback.play;
+  const selectedSessionId = selectedSession?.session_id;
+  const autoPlayedSessionRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (!selectedSessionId) return;
+    if (replayLoading) return;
+    if (replayPoints.length <= 1) return;
+    if (autoPlayedSessionRef.current === selectedSessionId) return;
+    play();
+    autoPlayedSessionRef.current = selectedSessionId;
+  }, [play, replayLoading, replayPoints.length, selectedSessionId]);
 
   const durationLabel = useMemo(() => {
     if (!timeline) return 'No timeline data';
@@ -58,13 +67,6 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
     const seconds = Math.floor((timeline.durationMs % 60000) / 1000);
     return `${minutes}m ${seconds}s`;
   }, [timeline]);
-
-  const handleSelect = async (sessionId: string) => {
-    await selectSession(sessionId, { autoLoad: autoLoadReplay });
-    if (!autoLoadReplay) {
-      await loadReplay(sessionId);
-    }
-  };
 
   const progressPercent = Math.round(playback.progress * 100);
 
@@ -75,31 +77,17 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
           <CardTitle className="text-xl">Mission replay</CardTitle>
           <CardDescription>{missionName ? `Tracks flown by ${missionName}` : 'Playback recorded telemetry'}</CardDescription>
         </div>
-        <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={autoLoadReplay}
-              onChange={(event) => setAutoLoadReplay(event.target.checked)}
-              className="h-3.5 w-3.5 rounded border border-input"
-            />
-            Auto-load replay
-          </label>
-          {timeline && (
+        {timeline && (
+          <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
             <span>
               Duration: <strong>{durationLabel}</strong>
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </CardHeader>
       <CardContent className="grid gap-6 lg:grid-cols-[320px,1fr] xl:grid-cols-[360px,1fr]">
         <div className="space-y-4">
-          <SessionList
-            sessions={sessions}
-            loading={sessionsLoading}
-            selectedSessionId={selectedSession?.session_id}
-            onSelect={handleSelect}
-          />
+          <SelectedSessionSummary session={selectedSession} loading={sessionsLoading} />
           <div className="rounded-2xl border border-border/60 bg-card/60 p-4">
             <PlaybackControls
               isPlaying={playback.isPlaying}
@@ -150,59 +138,65 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
   );
 }
 
-function SessionList({
-  sessions,
-  selectedSessionId,
+function SelectedSessionSummary({
+  session,
   loading,
-  onSelect,
 }: {
-  sessions: FlightSession[];
-  selectedSessionId?: string;
+  session?: FlightSession;
   loading: boolean;
-  onSelect: (sessionId: string) => void;
 }) {
   if (loading) {
     return (
       <div className="space-y-2">
-        {Array.from({ length: 3 }, (_, idx) => (
-          <div key={idx} className="h-14 rounded-xl bg-muted/40" />
+        {Array.from({ length: 2 }, (_, idx) => (
+          <div key={idx} className="h-16 rounded-xl bg-muted/40" />
         ))}
       </div>
     );
   }
-  if (!sessions.length) {
+
+  if (!session) {
     return (
       <div className="rounded-xl border border-dashed border-border/60 bg-card/60 px-4 py-3 text-sm text-muted-foreground">
-        No sessions recorded for this mission yet.
+        No recorded sessions are available yet. Replays will start automatically once telemetry is captured.
       </div>
     );
   }
+
   return (
-    <div className="max-h-96 space-y-3 overflow-y-auto pr-2">
-      {sessions.map((session) => (
-        <button
-          key={session.session_id}
-          type="button"
-          onClick={() => onSelect(session.session_id)}
-          className={cn(
-            'w-full rounded-2xl border px-4 py-3 text-left transition hover:border-primary/60',
-            selectedSessionId === session.session_id ? 'border-primary bg-primary/5' : 'border-border/60 bg-card/60'
-          )}
-        >
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <div>
-              <p className="font-semibold">Session {session.session_id.slice(0, 8)}</p>
-              <p className="text-xs text-muted-foreground">{formatDateTime(session.start_time)}</p>
-            </div>
-            {session.status && (
-              <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusIntent[session.status] ?? statusIntent.COMPLETED)}>
-                {session.status}
-              </span>
-            )}
-          </div>
-          {session.pilot_name && <p className="text-xs text-muted-foreground">Pilot: {session.pilot_name}</p>}
-        </button>
-      ))}
+    <div className="rounded-2xl border border-border/60 bg-card/60 p-4 text-sm">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Latest session</p>
+          <p className="text-lg font-semibold">Session {session.session_id.slice(0, 8)}</p>
+        </div>
+        {session.status && (
+          <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusIntent[session.status] ?? statusIntent.COMPLETED)}>
+            {session.status}
+          </span>
+        )}
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-xs text-muted-foreground">
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide">Start time</dt>
+          <dd className="text-sm text-foreground">{formatDateTime(session.start_time)}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide">End time</dt>
+          <dd className="text-sm text-foreground">{formatDateTime(session.end_time)}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide">Pilot</dt>
+          <dd className="text-sm text-foreground">{session.pilot_name ?? 'Unknown pilot'}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide">Aircraft</dt>
+          <dd className="text-sm text-foreground">{session.drone_name ?? 'N/A'}</dd>
+        </div>
+      </dl>
+      <p className="mt-3 text-xs text-muted-foreground">
+        The latest completed session automatically loads and starts playback as soon as telemetry data is ready.
+      </p>
     </div>
   );
 }

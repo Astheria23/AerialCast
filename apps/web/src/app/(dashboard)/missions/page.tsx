@@ -230,17 +230,27 @@ export default function MissionsPage() {
     }
   }
 
+  const visibleMissions = useMemo(() => {
+    if (isAdmin) {
+      return missions
+    }
+    if (user?.id) {
+      return missions.filter((mission) => mission.created_by_user_id === user.id)
+    }
+    return missions
+  }, [isAdmin, missions, user?.id])
+
   const statusCounts = useMemo(() => {
-    return missions.reduce<Record<string, number>>((acc, mission) => {
+    return visibleMissions.reduce<Record<string, number>>((acc, mission) => {
       const status = mission.status || "DRAFT"
       acc[status] = (acc[status] || 0) + 1
       return acc
     }, {})
-  }, [missions])
+  }, [visibleMissions])
 
   const filteredMissions = useMemo(() => {
     const normalizedSearch = searchTerm.toLowerCase().trim()
-    return missions
+    return visibleMissions
       .filter((mission) => {
         const matchesSearch = normalizedSearch
           ? mission.mission_name.toLowerCase().includes(normalizedSearch) || mission.notes?.toLowerCase().includes(normalizedSearch)
@@ -253,12 +263,12 @@ export default function MissionsPage() {
         const dateB = b.created_at ? new Date(b.created_at).getTime() : 0
         return sortOrder === "recent" ? dateB - dateA : dateA - dateB
       })
-  }, [missions, searchTerm, statusFilter, sortOrder])
+  }, [visibleMissions, searchTerm, statusFilter, sortOrder])
 
-  const isListEmpty = !loading && missions.length === 0
+  const isListEmpty = !loading && visibleMissions.length === 0
   const hasFiltersApplied = searchTerm.trim().length > 0 || statusFilter !== "ALL" || sortOrder !== "recent"
-  const noFilteredResults = missions.length > 0 && filteredMissions.length === 0
-  const hasMissions = missions.length > 0
+  const noFilteredResults = visibleMissions.length > 0 && filteredMissions.length === 0
+  const hasMissions = visibleMissions.length > 0
   const aggregatedError = transientError ?? statusActionError ?? error ?? null
 
   return (

@@ -36,6 +36,7 @@ export default function MissionTelemetryPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const isMissionCompleted = mission?.status === 'COMPLETED';
 
   useEffect(() => {
     if (!missionId) return;
@@ -252,133 +253,136 @@ export default function MissionTelemetryPage() {
         </Card>
       )}
 
-      {!canStreamTelemetry && mission && (
+      {!isMissionCompleted && !canStreamTelemetry && mission && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Live telemetry becomes available once a mission is approved or in progress. Current status: {(mission.status ?? 'DRAFT').replace(/_/g, ' ')}.
         </div>
       )}
-      {telemetryError && (
+      {!isMissionCompleted && telemetryError && (
         <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
           {telemetryError}
         </div>
       )}
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-          <div className="h-[420px]">
-            <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
-          </div>
-          <div className="flex flex-col gap-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Flight vitals</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <TelemetryVitals stats={stats} latestPoint={latestPoint} />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle>Alerts</CardTitle>
-                  <p className="text-xs text-muted-foreground">Live alert feed from the aircraft</p>
-                </div>
-                {alertEvents.length > 0 && (
-                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                    {alertEvents.length}
-                  </span>
-                )}
-              </CardHeader>
-              <CardContent className="max-h-[200px] space-y-3 overflow-y-auto pr-2">
-                {alertEvents.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
-                    No alerts yet — keeping watch.
+      {!isMissionCompleted && (
+        <>
+          <div className="grid gap-6 xl:grid-cols-[2fr_1fr] xl:items-stretch">
+            <div className="h-full min-h-[420px]">
+              <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
+            </div>
+            <div className="flex h-full flex-col gap-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Flight vitals</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TelemetryVitals stats={stats} latestPoint={latestPoint} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between">
+                  <div>
+                    <CardTitle>Alerts</CardTitle>
+                    <p className="text-xs text-muted-foreground">Live alert feed from the aircraft</p>
                   </div>
-                ) : (
-                  <ul className="space-y-3">
-                    {alertEvents.map((event) => {
-                      const timestamp = new Date(event.timestamp);
-                      const isCritical = event.severity === 'danger';
-                      const badgeClasses = isCritical
-                        ? 'bg-rose-100 text-rose-900 border-rose-200'
-                        : 'bg-amber-100 text-amber-900 border-amber-200';
-                      return (
-                        <li key={event.id} className="rounded-xl border border-border/70 bg-card/90 p-3 text-sm">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses}`}>
-                              {isCritical ? 'Critical' : 'Warning'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {timestamp.toLocaleTimeString()} · {timestamp.toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="mt-2 font-semibold">{event.summary}</p>
-                          {event.details && <p className="text-muted-foreground">{event.details}</p>}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </CardContent>
-            </Card>
-            <Card className="flex-1">
-              <CardHeader>
-                <CardTitle>Live events</CardTitle>
-              </CardHeader>
-              <CardContent className="max-h-[260px] space-y-3 overflow-y-auto pr-2">
-                <TelemetryEventFeed events={events} />
-              </CardContent>
-            </Card>
+                  {alertEvents.length > 0 && (
+                    <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                      {alertEvents.length}
+                    </span>
+                  )}
+                </CardHeader>
+                <CardContent className="max-h-[200px] space-y-3 overflow-y-auto pr-2">
+                  {alertEvents.length === 0 ? (
+                    <div className="rounded-lg border border-dashed border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+                      No alerts yet — keeping watch.
+                    </div>
+                  ) : (
+                    <ul className="space-y-3">
+                      {alertEvents.map((event) => {
+                        const timestamp = new Date(event.timestamp);
+                        const isCritical = event.severity === 'danger';
+                        const badgeClasses = isCritical
+                          ? 'bg-rose-100 text-rose-900 border-rose-200'
+                          : 'bg-amber-100 text-amber-900 border-amber-200';
+                        return (
+                          <li key={event.id} className="rounded-xl border border-border/70 bg-card/90 p-3 text-sm">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses}`}>
+                                {isCritical ? 'Critical' : 'Warning'}
+                              </span>
+                              <span className="text-xs text-muted-foreground">
+                                {timestamp.toLocaleTimeString()} · {timestamp.toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="mt-2 font-semibold">{event.summary}</p>
+                            {event.details && <p className="text-muted-foreground">{event.details}</p>}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </CardContent>
+              </Card>
+              <Card className="flex-1">
+                <CardHeader>
+                  <CardTitle>Live events</CardTitle>
+                </CardHeader>
+                <CardContent className="max-h-[260px] space-y-3 overflow-y-auto pr-2">
+                  <TelemetryEventFeed events={events} />
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
 
-      {mission ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Latest telemetry samples</CardTitle>
+            </CardHeader>
+            <CardContent className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="py-2">Timestamp</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Altitude</th>
+                    <th>Battery</th>
+                    <th>Signal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {latestPoints.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                        Waiting for telemetry samples...
+                      </td>
+                    </tr>
+                  )}
+                  {latestPoints.map((point) => (
+                    <tr key={point.telemetry_id ?? `${point.latitude}-${point.longitude}`} className="border-t border-border/60">
+                      <td className="py-2">{point.recorded_at ? new Date(point.recorded_at).toLocaleTimeString() : '—'}</td>
+                      <td>{point.latitude.toFixed(4)}</td>
+                      <td>{point.longitude.toFixed(4)}</td>
+                      <td>{point.altitude ? `${point.altitude.toFixed(1)} m` : '—'}</td>
+                      <td>{point.battery_voltage ? `${point.battery_voltage.toFixed(2)} V` : '—'}</td>
+                      <td>{point.rssi ? `${point.rssi} dBm` : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {mission && isMissionCompleted && (
         <MissionReplayPanel
           missionId={mission.mission_id}
           missionName={mission.mission_name}
           defaultStatuses={['LIVE', 'COMPLETED']}
           sessionLimit={15}
-          autoLoadReplay={false}
         />
-      ) : null}
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Latest telemetry samples</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
-              <tr>
-                <th className="py-2">Timestamp</th>
-                <th>Latitude</th>
-                <th>Longitude</th>
-                <th>Altitude</th>
-                <th>Battery</th>
-                <th>Signal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {latestPoints.length === 0 && (
-                <tr>
-                  <td colSpan={6} className="py-4 text-center text-muted-foreground">
-                    Waiting for telemetry samples...
-                  </td>
-                </tr>
-              )}
-              {latestPoints.map((point) => (
-                <tr key={point.telemetry_id ?? `${point.latitude}-${point.longitude}`} className="border-t border-border/60">
-                  <td className="py-2">{point.recorded_at ? new Date(point.recorded_at).toLocaleTimeString() : '—'}</td>
-                  <td>{point.latitude.toFixed(4)}</td>
-                  <td>{point.longitude.toFixed(4)}</td>
-                  <td>{point.altitude ? `${point.altitude.toFixed(1)} m` : '—'}</td>
-                  <td>{point.battery_voltage ? `${point.battery_voltage.toFixed(2)} V` : '—'}</td>
-                  <td>{point.rssi ? `${point.rssi} dBm` : '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </CardContent>
-      </Card>
+      )}
     </div>
   );
 }

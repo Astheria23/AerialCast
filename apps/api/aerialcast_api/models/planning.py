@@ -58,6 +58,7 @@ class Mission(db.Model):
             "notes": self.notes,
             "drone_id": str(self.drone_id),
             "created_by_user_id": str(self.created_by_user_id),
+            "pilot_name": self.creator.full_name if getattr(self, "creator", None) else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "waypoints": [wp.to_dict() for wp in self.waypoints],
             "required_checklists": [

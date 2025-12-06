@@ -83,7 +83,7 @@ export const useMissionReplay = (options: MissionReplayOptions): UseMissionRepla
     defaultStatuses,
     sessionLimit,
     autoSelectLatest = true,
-    autoLoadReplay = false,
+    autoLoadReplay = true,
   } = options;
 
   const defaultStatusesKey = defaultStatuses?.join(',') ?? '';

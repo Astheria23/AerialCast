@@ -21,6 +21,7 @@ class MissionSchema(Schema):
     notes = fields.String()
     drone_id = fields.UUID(required=True)
     created_by_user_id = fields.UUID(dump_only=True)
+    pilot_name = fields.String(dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema), required=True)
     status = fields.Method("_dump_status", dump_only=True)
