@@ -258,6 +258,7 @@ export default function MissionsPage() {
   const isListEmpty = !loading && missions.length === 0
   const hasFiltersApplied = searchTerm.trim().length > 0 || statusFilter !== "ALL" || sortOrder !== "recent"
   const noFilteredResults = missions.length > 0 && filteredMissions.length === 0
+  const hasMissions = missions.length > 0
   const aggregatedError = transientError ?? statusActionError ?? error ?? null
 
   return (
@@ -351,7 +352,7 @@ export default function MissionsPage() {
         }}
       />
 
-      {missions.length > 0 && (
+      {hasMissions && (
         <div className="grid gap-4 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-4">
           {["DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_PROGRESS", "COMPLETED"].map((status) => (
             <div key={status} className="rounded-lg border border-dashed p-3">
@@ -362,7 +363,7 @@ export default function MissionsPage() {
         </div>
       )}
 
-      {missions.length > 0 && (
+      {hasMissions && (
         <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 shadow-sm">
           <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
             <Filter className="h-4 w-4" /> Mission filters

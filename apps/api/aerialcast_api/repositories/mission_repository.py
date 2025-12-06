@@ -26,6 +26,15 @@ class MissionRepository(Repository[Mission]):
         return list(cls.session().execute(stmt).scalars())
 
     @classmethod
+    def list_by_creator(cls, user_id) -> Sequence[Mission]:
+        stmt = (
+            select(Mission)
+            .filter(Mission.created_by_user_id == user_id)
+            .order_by(Mission.created_at.desc())
+        )
+        return list(cls.session().execute(stmt).scalars())
+
+    @classmethod
     def find_live_for_drone(cls, drone_id) -> Optional[Mission]:
         stmt = select(Mission).filter_by(drone_id=drone_id, status=MissionStatus.IN_PROGRESS)
         return cls.session().execute(stmt).scalar_one_or_none()

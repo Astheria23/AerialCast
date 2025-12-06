@@ -115,8 +115,15 @@ class MissionService:
             return {"error": str(exc)}, 500
 
     @classmethod
-    def get_all_missions(cls):
-        return cls.mission_repository.list_all()
+    def get_all_missions(cls, user_id=None):
+        if user_id is None:
+            return cls.mission_repository.list_all()
+        user = cls.user_repository.get(user_id)
+        if user is None:
+            abort(404, message="User not found")
+        if user.role == UserRole.ADMIN:
+            return cls.mission_repository.list_all()
+        return cls.mission_repository.list_by_creator(user_id)
 
     @classmethod
     def get_mission_by_id(cls, mission_id):

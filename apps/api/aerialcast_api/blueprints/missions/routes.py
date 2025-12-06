@@ -23,7 +23,8 @@ class MissionList(MethodView):
 	@jwt_required()
 	@blp.response(200, MissionSchema(many=True))
 	def get(self):
-		return MissionService.get_all_missions()
+		user_id = get_jwt_identity()
+		return MissionService.get_all_missions(user_id=user_id)
 
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()
