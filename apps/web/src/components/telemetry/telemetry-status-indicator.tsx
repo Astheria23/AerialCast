@@ -7,7 +7,6 @@ import type { TelemetryConnectionState } from '@/types/telemetry.types';
 
 interface TelemetryStatusIndicatorProps {
   state: TelemetryConnectionState;
-  isMock?: boolean;
 }
 
 const STATE_STYLES: Record<
@@ -22,7 +21,7 @@ const STATE_STYLES: Record<
   error: { label: 'Error', classes: 'bg-rose-100 text-rose-700', icon: AlertTriangle },
 };
 
-export function TelemetryStatusIndicator({ state, isMock }: TelemetryStatusIndicatorProps) {
+export function TelemetryStatusIndicator({ state }: TelemetryStatusIndicatorProps) {
   const definition = STATE_STYLES[state] ?? STATE_STYLES.idle;
   const Icon = definition.icon;
 
@@ -32,7 +31,6 @@ export function TelemetryStatusIndicator({ state, isMock }: TelemetryStatusIndic
         <Icon className="h-4 w-4" />
         {definition.label}
       </span>
-      {isMock && <span className="text-xs text-muted-foreground">Simulated stream</span>}
     </div>
   );
 }

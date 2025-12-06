@@ -56,5 +56,11 @@ export interface TelemetryState {
   latestPoint?: TelemetryPoint;
   connectionState: TelemetryConnectionState;
   error?: string | null;
-  isMockStream?: boolean;
+}
+
+export interface TelemetryReplayQuery {
+  since?: string;
+  until?: string;
+  limit?: number;
+  sampleEvery?: number;
 }

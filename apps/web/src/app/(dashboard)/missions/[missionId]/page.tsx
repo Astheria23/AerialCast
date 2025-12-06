@@ -2,18 +2,18 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { TelemetryEventFeed } from '@/components/telemetry/telemetry-event-feed';
 import { TelemetryMap } from '@/components/telemetry/telemetry-map';
 import { TelemetryStatusIndicator } from '@/components/telemetry/telemetry-status-indicator';
 import { TelemetryVitals } from '@/components/telemetry/telemetry-vitals';
+import { MissionReplayPanel } from '@/components/telemetry/mission-replay-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/auth.hooks';
 import { useTelemetry } from '@/hooks/telemetry.hooks';
-import { cn } from '@/lib/utils';
 import { missionsService } from '@/services/missions.service';
 import type { Mission, MissionStatusAction } from '@/types/missions.types';
 
@@ -72,29 +72,6 @@ export default function MissionTelemetryPage() {
   const canStartMission = Boolean(mission?.status === 'APPROVED' && canControlMission);
   const canEndMission = Boolean(mission?.status === 'IN_PROGRESS' && canControlMission);
 
-  const [telemetryMode, setTelemetryMode] = useState<'live' | 'mock'>(() => (canStreamTelemetry ? 'live' : 'mock'));
-  const telemetryModeOverrideRef = useRef(false);
-
-  useEffect(() => {
-    if (!telemetryModeOverrideRef.current) {
-      const desiredMode = canStreamTelemetry ? 'live' : 'mock';
-      setTelemetryMode((prev) => (prev === desiredMode ? prev : desiredMode));
-      return;
-    }
-    if (!canStreamTelemetry && telemetryMode === 'live') {
-      setTelemetryMode('mock');
-      telemetryModeOverrideRef.current = false;
-    }
-  }, [canStreamTelemetry, telemetryMode]);
-
-  const handleTelemetryModeChange = (mode: 'live' | 'mock') => {
-    if (mode === 'live' && !canStreamTelemetry) {
-      return;
-    }
-    telemetryModeOverrideRef.current = true;
-    setTelemetryMode(mode);
-  };
-
   const handleMissionStatusChange = useCallback(
     async (action: MissionStatusAction) => {
       if (!missionId) return;
@@ -122,26 +99,22 @@ export default function MissionTelemetryPage() {
     error: telemetryError,
     connect,
     disconnect,
-    isMockStream,
     activeSessionId,
   } = useTelemetry({
     missionId,
-    missionWaypoints: mission?.waypoints ?? [],
     autoStart: false,
-    mockStream: telemetryMode === 'mock',
-    fallbackToMock: telemetryMode === 'live',
     pollIntervalMs: 4000,
   });
 
   useEffect(() => {
     if (!missionId) return undefined;
-    if (telemetryMode === 'live' && !canStreamTelemetry) {
+    if (!canStreamTelemetry) {
       disconnect();
       return undefined;
     }
-    void connect();
+    connect().catch(() => null);
     return () => disconnect();
-  }, [canStreamTelemetry, connect, disconnect, missionId, telemetryMode]);
+  }, [canStreamTelemetry, connect, disconnect, missionId]);
 
   const missionStatusClass = STATUS_COLORS[mission?.status ?? 'DRAFT'] ?? STATUS_COLORS.DRAFT;
   const latestPoints = points.slice(-6).reverse();
@@ -157,79 +130,21 @@ export default function MissionTelemetryPage() {
   return (
     <div className="flex flex-col gap-6 p-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button asChild variant="ghost" className="gap-2">
             <Link href="/missions">
               <ArrowLeft className="h-4 w-4" />
               Back to missions
             </Link>
           </Button>
-          <TelemetryStatusIndicator state={connectionState} isMock={isMockStream} />
+          <TelemetryStatusIndicator state={connectionState} />
+          {shortSessionLabel && (
+            <span className="text-xs text-muted-foreground">Session {shortSessionLabel}</span>
+          )}
         </div>
         <Button asChild variant="outline">
           <Link href={`/missions/${missionId}/export`}>Export flight log</Link>
         </Button>
-      </div>
-
-      <div className="rounded-2xl border border-border/60 bg-card/60 px-4 py-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="space-y-0.5">
-            <p className="text-sm font-semibold">Telemetry source</p>
-            <p className="text-xs text-muted-foreground">
-              {telemetryMode === 'live'
-                ? 'Polling the backend replay endpoint for the most recent packets.'
-                : 'Running the deterministic demo stream for rehearsals and UI validation.'}
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex overflow-hidden rounded-lg border text-sm font-medium shadow-sm">
-              <button
-                type="button"
-                onClick={() => handleTelemetryModeChange('live')}
-                disabled={!canStreamTelemetry && telemetryMode !== 'live'}
-                className={cn(
-                  'px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                  telemetryMode === 'live'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted/80',
-                  !canStreamTelemetry && 'cursor-not-allowed opacity-60'
-                )}
-              >
-                Live backend
-              </button>
-              <button
-                type="button"
-                onClick={() => handleTelemetryModeChange('mock')}
-                className={cn(
-                  'px-3 py-1.5 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
-                  telemetryMode === 'mock'
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background text-muted-foreground hover:bg-muted/80'
-                )}
-              >
-                Demo stream
-              </button>
-            </div>
-            {telemetryMode === 'live' && shortSessionLabel && (
-              <span className="text-xs text-muted-foreground">Session {shortSessionLabel}</span>
-            )}
-          </div>
-        </div>
-        {telemetryMode === 'live' && isMockStream && canStreamTelemetry && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            Waiting for fresh backend packets — showing cached/demo data until the next update arrives.
-          </p>
-        )}
-        {telemetryMode === 'mock' && canStreamTelemetry && (
-          <p className="mt-2 text-xs text-muted-foreground">
-            You are viewing the rehearsal stream even though live data is available.
-          </p>
-        )}
-        {telemetryMode === 'live' && !canStreamTelemetry && (
-          <p className="mt-2 text-xs text-amber-600">
-            Approve or start this mission to unlock the backend stream. Demo data will play meanwhile.
-          </p>
-        )}
       </div>
 
       {loading && (
@@ -349,72 +264,82 @@ export default function MissionTelemetryPage() {
       )}
 
       <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
-        <div className="h-[420px]">
-          <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
-        </div>
-        <div className="flex flex-col gap-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Flight vitals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <TelemetryVitals stats={stats} latestPoint={latestPoint} />
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Alerts</CardTitle>
-                <p className="text-xs text-muted-foreground">Live alert feed from the aircraft</p>
-              </div>
-              {alertEvents.length > 0 && (
-                <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
-                  {alertEvents.length}
-                </span>
-              )}
-            </CardHeader>
-            <CardContent className="max-h-[200px] space-y-3 overflow-y-auto pr-2">
-              {alertEvents.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
-                  No alerts yet — keeping watch.
+          <div className="h-[420px]">
+            <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
+          </div>
+          <div className="flex flex-col gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle>Flight vitals</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TelemetryVitals stats={stats} latestPoint={latestPoint} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <div>
+                  <CardTitle>Alerts</CardTitle>
+                  <p className="text-xs text-muted-foreground">Live alert feed from the aircraft</p>
                 </div>
-              ) : (
-                <ul className="space-y-3">
-                  {alertEvents.map((event) => {
-                    const timestamp = new Date(event.timestamp);
-                    const isCritical = event.severity === 'danger';
-                    const badgeClasses = isCritical
-                      ? 'bg-rose-100 text-rose-900 border-rose-200'
-                      : 'bg-amber-100 text-amber-900 border-amber-200';
-                    return (
-                      <li key={event.id} className="rounded-xl border border-border/70 bg-card/90 p-3 text-sm">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses}`}>
-                            {isCritical ? 'Critical' : 'Warning'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {timestamp.toLocaleTimeString()} · {timestamp.toLocaleDateString()}
-                          </span>
-                        </div>
-                        <p className="mt-2 font-semibold">{event.summary}</p>
-                        {event.details && <p className="text-muted-foreground">{event.details}</p>}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-          <Card className="flex-1">
-            <CardHeader>
-              <CardTitle>Live events</CardTitle>
-            </CardHeader>
-            <CardContent className="max-h-[260px] space-y-3 overflow-y-auto pr-2">
-              <TelemetryEventFeed events={events} />
-            </CardContent>
-          </Card>
+                {alertEvents.length > 0 && (
+                  <span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-semibold text-rose-700">
+                    {alertEvents.length}
+                  </span>
+                )}
+              </CardHeader>
+              <CardContent className="max-h-[200px] space-y-3 overflow-y-auto pr-2">
+                {alertEvents.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-border bg-card/60 px-4 py-3 text-sm text-muted-foreground">
+                    No alerts yet — keeping watch.
+                  </div>
+                ) : (
+                  <ul className="space-y-3">
+                    {alertEvents.map((event) => {
+                      const timestamp = new Date(event.timestamp);
+                      const isCritical = event.severity === 'danger';
+                      const badgeClasses = isCritical
+                        ? 'bg-rose-100 text-rose-900 border-rose-200'
+                        : 'bg-amber-100 text-amber-900 border-amber-200';
+                      return (
+                        <li key={event.id} className="rounded-xl border border-border/70 bg-card/90 p-3 text-sm">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${badgeClasses}`}>
+                              {isCritical ? 'Critical' : 'Warning'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {timestamp.toLocaleTimeString()} · {timestamp.toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="mt-2 font-semibold">{event.summary}</p>
+                          {event.details && <p className="text-muted-foreground">{event.details}</p>}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+            <Card className="flex-1">
+              <CardHeader>
+                <CardTitle>Live events</CardTitle>
+              </CardHeader>
+              <CardContent className="max-h-[260px] space-y-3 overflow-y-auto pr-2">
+                <TelemetryEventFeed events={events} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+
+      {mission ? (
+        <MissionReplayPanel
+          missionId={mission.mission_id}
+          missionName={mission.mission_name}
+          defaultStatuses={['LIVE', 'COMPLETED']}
+          sessionLimit={15}
+          autoLoadReplay={false}
+        />
+      ) : null}
 
       <Card>
         <CardHeader>

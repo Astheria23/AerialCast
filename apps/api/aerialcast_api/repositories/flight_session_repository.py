@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Optional, Sequence
+from typing import Iterable, Optional, Sequence
 
 from sqlalchemy import select
 
@@ -22,6 +22,23 @@ class FlightSessionRepository(Repository[FlightSession]):
     @classmethod
     def list_all(cls) -> Sequence[FlightSession]:  # type: ignore[override]
         stmt = select(FlightSession).order_by(FlightSession.start_time.desc())
+        return list(cls.session().execute(stmt).scalars())
+
+    @classmethod
+    def list_filtered(
+        cls,
+        mission_id = None,
+        statuses: Optional[Iterable[SessionStatus]] = None,
+        limit: Optional[int] = None,
+    ):
+        stmt = select(FlightSession)
+        if mission_id is not None:
+            stmt = stmt.filter(FlightSession.mission_id == mission_id)
+        if statuses:
+            stmt = stmt.filter(FlightSession.status.in_(list(statuses)))
+        stmt = stmt.order_by(FlightSession.start_time.desc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
         return list(cls.session().execute(stmt).scalars())
 
     @classmethod

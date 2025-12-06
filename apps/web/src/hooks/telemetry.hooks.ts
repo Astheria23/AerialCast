@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { telemetryService } from '@/services/telemetry.service';
-import type { MissionWaypoint } from '@/types/missions.types';
 import type {
   TelemetryConnectionState,
   TelemetryEventItem,
@@ -12,9 +11,6 @@ import type {
 interface UseTelemetryOptions {
   missionId: string;
   sessionId?: string;
-  missionWaypoints?: MissionWaypoint[];
-  mockStream?: boolean;
-  fallbackToMock?: boolean;
   autoStart?: boolean;
   pollIntervalMs?: number;
 }
@@ -28,7 +24,6 @@ interface UseTelemetryResult {
   error?: string | null;
   connect: () => Promise<void>;
   disconnect: () => void;
-  isMockStream: boolean;
   activeSessionId?: string;
 }
 
@@ -47,8 +42,6 @@ const randomId = () => {
   return Math.random().toString(36).slice(2);
 };
 
-const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
-
 const toRadians = (val: number) => (val * Math.PI) / 180;
 
 const haversineDistance = (a: TelemetryPoint, b: TelemetryPoint) => {
@@ -65,7 +58,7 @@ const haversineDistance = (a: TelemetryPoint, b: TelemetryPoint) => {
   return R * c;
 };
 
-const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary => {
+export const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary => {
   if (!points.length) {
     return DEFAULT_STATS;
   }
@@ -109,7 +102,7 @@ const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary => {
   };
 };
 
-const deriveEvents = (points: TelemetryPoint[]): TelemetryEventItem[] => {
+export const deriveEvents = (points: TelemetryPoint[]): TelemetryEventItem[] => {
   if (!points.length) return [];
 
   const latestPoints = points.slice(-12);
@@ -137,37 +130,13 @@ const deriveEvents = (points: TelemetryPoint[]): TelemetryEventItem[] => {
     .reverse();
 };
 
-const buildMockPath = (missionWaypoints: MissionWaypoint[]): Array<{ latitude: number; longitude: number }> => {
-  if (!missionWaypoints.length) {
-    return [
-      { latitude: -6.2017, longitude: 106.8142 },
-      { latitude: -6.206, longitude: 106.817 },
-      { latitude: -6.2108, longitude: 106.82 },
-    ];
-  }
-  return [...missionWaypoints]
-    .sort((a, b) => a.order - b.order)
-    .map((waypoint) => ({ latitude: waypoint.latitude, longitude: waypoint.longitude }));
-};
-
 export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
-  const {
-    missionId,
-    sessionId,
-    missionWaypoints = [],
-    autoStart = true,
-    mockStream = false,
-    fallbackToMock = true,
-    pollIntervalMs = 5000,
-  } = options;
+  const { missionId, sessionId, autoStart = true, pollIntervalMs = 5000 } = options;
   const [points, setPoints] = useState<TelemetryPoint[]>([]);
   const [connectionState, setConnectionState] = useState<TelemetryConnectionState>('idle');
   const [error, setError] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const cursorRef = useRef(0);
-  const [isMockMode, setIsMockMode] = useState<boolean>(mockStream);
   const [activeSessionId, setActiveSessionId] = useState<string | undefined>(sessionId);
-  const mockPath = useMemo(() => buildMockPath(missionWaypoints), [missionWaypoints]);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current) {
@@ -178,65 +147,12 @@ export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
 
   const disconnect = useCallback(() => {
     clearTimer();
-    cursorRef.current = 0;
     setConnectionState((prev) => (prev === 'error' ? prev : 'disconnected'));
   }, [clearTimer]);
-
-  const pushPoint = useCallback((point: TelemetryPoint) => {
-    setPoints((prev) => {
-      const next = [...prev, point];
-      if (next.length > 240) {
-        next.shift();
-      }
-      return next;
-    });
-  }, []);
-
-  const buildMockPoint = useCallback((): TelemetryPoint => {
-    const index = cursorRef.current;
-    cursorRef.current += 1;
-    const from = mockPath[index % mockPath.length];
-    const to = mockPath[(index + 1) % mockPath.length];
-    const ratio = (index % 20) / 20;
-    const latitude = from.latitude + (to.latitude - from.latitude) * ratio + (Math.random() - 0.5) * 0.0005;
-    const longitude = from.longitude + (to.longitude - from.longitude) * ratio + (Math.random() - 0.5) * 0.0005;
-    const altitude = 40 + Math.sin(index / 4) * 6 + Math.random() * 3;
-    const baseBattery = 12.6;
-    const drained = baseBattery - index * 0.02;
-    const battery_voltage = clamp(Number(drained.toFixed(2)), 10.3, 12.6);
-    const rssi = -45 - index * 0.2 + Math.random() * 4;
-    const speed = 8 + Math.random() * 3;
-    const heading = (index * 15) % 360;
-    return {
-      telemetry_id: randomId(),
-      latitude,
-      longitude,
-      altitude: Number(altitude.toFixed(2)),
-      battery_voltage,
-      rssi: Number(rssi.toFixed(0)),
-      speed: Number(speed.toFixed(2)),
-      heading,
-      recorded_at: new Date().toISOString(),
-    } satisfies TelemetryPoint;
-  }, [mockPath]);
-
-  const startMockStream = useCallback(() => {
-    clearTimer();
-    setIsMockMode(true);
-    setActiveSessionId(undefined);
-    cursorRef.current = Math.floor(Math.random() * 5);
-    setPoints(telemetryService.generateMockTrail(missionWaypoints, 10));
-    setConnectionState('live');
-    timerRef.current = setInterval(() => {
-      const point = buildMockPoint();
-      pushPoint(point);
-    }, 2000);
-  }, [buildMockPoint, clearTimer, missionWaypoints, pushPoint]);
 
   const startLivePolling = useCallback(
     async (resolvedSessionId: string) => {
       clearTimer();
-      setIsMockMode(false);
       setActiveSessionId(resolvedSessionId);
       const initial = await telemetryService.getSessionReplay(resolvedSessionId);
       setPoints(initial ?? []);
@@ -251,6 +167,7 @@ export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
             pollError instanceof Error ? pollError.message : 'Failed to refresh telemetry data';
           setError(message);
           setConnectionState('error');
+          clearTimer();
         }
       }, pollIntervalMs);
     },
@@ -260,21 +177,14 @@ export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
   const connect = useCallback(async () => {
     setError(null);
     setConnectionState('connecting');
-    if (mockStream) {
-      startMockStream();
-      return;
-    }
-
     try {
       const resolvedSessionId =
         sessionId ?? (await telemetryService.getLatestSessionForMission(missionId))?.session_id;
       if (!resolvedSessionId) {
-        if (fallbackToMock) {
-          startMockStream();
-        } else {
-          setConnectionState('disconnected');
-          setError('No flight session available yet for this mission.');
-        }
+        setConnectionState('disconnected');
+        setActiveSessionId(undefined);
+        setPoints([]);
+        setError('No flight session available yet for this mission.');
         return;
       }
       await startLivePolling(resolvedSessionId);
@@ -283,11 +193,9 @@ export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
       const message = err instanceof Error ? err.message : 'Failed to connect to telemetry stream';
       setError(message);
       setConnectionState('error');
-      if (fallbackToMock) {
-        startMockStream();
-      }
+      clearTimer();
     }
-  }, [fallbackToMock, missionId, mockStream, sessionId, startLivePolling, startMockStream]);
+  }, [clearTimer, missionId, sessionId, startLivePolling]);
 
   useEffect(() => {
     if (!autoStart) return undefined;
@@ -318,7 +226,6 @@ export function useTelemetry(options: UseTelemetryOptions): UseTelemetryResult {
     error,
     connect,
     disconnect,
-    isMockStream: isMockMode,
     activeSessionId,
   } satisfies UseTelemetryResult;
 }

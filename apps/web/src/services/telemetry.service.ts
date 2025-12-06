@@ -1,17 +1,9 @@
 import api from '@/lib/axios';
-import type { MissionWaypoint } from '@/types/missions.types';
-import type { FlightSession } from '@/types/sessions.types';
-import type { TelemetryPoint } from '@/types/telemetry.types';
+import type { FlightSession, SessionStatus } from '@/types/sessions.types';
+import type { TelemetryPoint, TelemetryReplayQuery } from '@/types/telemetry.types';
 
 const SESSIONS_ENDPOINT = 'api/v1/sessions';
 const MAX_POINTS = 240;
-
-const randomId = () => {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID();
-  }
-  return Math.random().toString(36).slice(2);
-};
 
 type ApiTelemetryPoint = {
   telemetry_id?: string;
@@ -27,6 +19,14 @@ type ApiTelemetryPoint = {
   session_id?: string;
 };
 
+type SessionListQuery = {
+  missionId?: string;
+  statuses?: SessionStatus[];
+  limit?: number;
+};
+
+type MissionSessionQuery = Omit<SessionListQuery, 'missionId'>;
+
 const normalizeTelemetryPoints = (points: ApiTelemetryPoint[]): TelemetryPoint[] => {
   return points
     .map((point, index) => {
@@ -41,19 +41,62 @@ const normalizeTelemetryPoints = (points: ApiTelemetryPoint[]): TelemetryPoint[]
     .slice(-MAX_POINTS);
 };
 
+const buildSessionQuery = (params: SessionListQuery = {}) => {
+  const search = new URLSearchParams();
+  if (params.missionId) {
+    search.set('mission_id', params.missionId);
+  }
+  if (params.statuses && params.statuses.length) {
+    search.set('status', params.statuses.join(','));
+  }
+  if (params.limit) {
+    search.set('limit', String(params.limit));
+  }
+  return search;
+};
+
+const fetchSessions = async (params: SessionListQuery = {}) => {
+  const query = buildSessionQuery(params).toString();
+  const url = query ? `${SESSIONS_ENDPOINT}?${query}` : SESSIONS_ENDPOINT;
+  const response = await api.get<FlightSession[]>(url);
+  return response.data;
+};
+
+const buildReplayQuery = (params: TelemetryReplayQuery = {}) => {
+  const search = new URLSearchParams();
+  if (params.since) {
+    search.set('since', params.since);
+  }
+  if (params.until) {
+    search.set('until', params.until);
+  }
+  if (params.limit) {
+    search.set('limit', String(params.limit));
+  }
+  if (params.sampleEvery) {
+    search.set('sample_every', String(params.sampleEvery));
+  }
+  return search;
+};
+
 export const telemetryService = {
-  async getSessionReplay(sessionId: string) {
-    const response = await api.get<ApiTelemetryPoint[]>(`${SESSIONS_ENDPOINT}/${sessionId}/replay`);
+  async getSessionReplay(sessionId: string, params: TelemetryReplayQuery = {}) {
+    const query = buildReplayQuery(params).toString();
+    const url = query
+      ? `${SESSIONS_ENDPOINT}/${sessionId}/replay?${query}`
+      : `${SESSIONS_ENDPOINT}/${sessionId}/replay`;
+    const response = await api.get<ApiTelemetryPoint[]>(url);
     return normalizeTelemetryPoints(response.data);
   },
 
-  async getSessions() {
-    const response = await api.get<FlightSession[]>(SESSIONS_ENDPOINT);
-    return response.data;
+  getSessions: fetchSessions,
+
+  async getMissionSessions(missionId: string, params: MissionSessionQuery = {}) {
+    return fetchSessions({ missionId, ...params });
   },
 
   async getLatestSessionForMission(missionId: string) {
-    const sessions = await this.getSessions();
+    const sessions = await fetchSessions({ missionId, limit: 10 });
     const relevant = sessions.filter((session) => session.mission_id === missionId);
     if (!relevant.length) {
       return null;
@@ -70,37 +113,6 @@ export const telemetryService = {
       const bTime = b.start_time ? new Date(b.start_time).getTime() : 0;
       return bTime - aTime;
     })[0];
-  },
-
-  generateMockTrail(waypoints: MissionWaypoint[] = [], length = 40): TelemetryPoint[] {
-    const ordered = [...waypoints].sort((a, b) => a.order - b.order);
-    const sourcePath = ordered.length ? ordered : [{ latitude: -6.2, longitude: 106.8167, order: 0 }];
-
-    const points: TelemetryPoint[] = [];
-    for (let i = 0; i < length; i += 1) {
-      const from = sourcePath[i % sourcePath.length];
-      const to = sourcePath[(i + 1) % sourcePath.length] || from;
-      const ratio = (i % 10) / 10;
-      const latitude = from.latitude + (to.latitude - from.latitude) * ratio + (Math.random() - 0.5) * 0.0008;
-      const longitude = from.longitude + (to.longitude - from.longitude) * ratio + (Math.random() - 0.5) * 0.0008;
-      const altitude = 40 + Math.sin(i / 5) * 8 + Math.random() * 3;
-      const battery_voltage = 12.6 - i * 0.05 + Math.random() * 0.02;
-      const rssi = -50 - i + Math.random() * 5;
-      const speed = 8 + Math.random() * 3;
-      const heading = (i * 12) % 360;
-      points.push({
-        telemetry_id: randomId(),
-        latitude,
-        longitude,
-        altitude,
-        battery_voltage,
-        rssi,
-        speed,
-        heading,
-        recorded_at: new Date(Date.now() - (length - i) * 1000).toISOString(),
-      });
-    }
-    return points.slice(-MAX_POINTS);
   },
 
   normalizeTelemetryPoints,

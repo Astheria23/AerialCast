@@ -4,12 +4,15 @@ from datetime import datetime
 
 from ..extensions import db
 from ..models.enums import DroneStatus, MissionStatus, SessionStatus, UserRole
-from ..models.execution import FlightSession, TelemetryData
+from ..models.execution import FlightSession
 from ..models.master import Drone, User
 from ..models.planning import Mission
+from ..repositories import FlightSessionRepository, TelemetryRepository
 
 
 class FlightSessionService:
+    session_repository = FlightSessionRepository
+    telemetry_repository = TelemetryRepository
     @staticmethod
     def get_active_mission_for_drone(lora_id):
         drone = Drone.query.filter_by(lora_id=lora_id).first()
@@ -61,22 +64,28 @@ class FlightSessionService:
             db.session.rollback()
             return None, str(exc)
 
-    @staticmethod
-    def get_all_sessions():
-        return FlightSession.query.order_by(FlightSession.start_time.desc()).all()
+    @classmethod
+    def get_all_sessions(cls):
+        return cls.session_repository.list_all()
+
+    @classmethod
+    def get_sessions(cls, mission_id=None, statuses=None, limit=None):
+        return cls.session_repository.list_filtered(mission_id=mission_id, statuses=statuses, limit=limit)
 
     @staticmethod
     def get_session_by_id(session_id):
         return FlightSession.query.get_or_404(session_id)
 
-    @staticmethod
-    def get_telemetry_replay(session_id):
-        """Return telemetry replay for a session."""
+    @classmethod
+    def get_telemetry_replay(cls, session_id, since=None, until=None, limit=None, sample_every=None):
+        """Return telemetry replay for a session with optional windowing."""
 
-        return (
-            TelemetryData.query.filter_by(session_id=session_id)
-            .order_by(TelemetryData.time.asc())
-            .all()
+        return cls.telemetry_repository.list_for_session(
+            session_id,
+            since=since,
+            until=until,
+            limit=limit,
+            sample_every=sample_every,
         )
 
     @staticmethod
