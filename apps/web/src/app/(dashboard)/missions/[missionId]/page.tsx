@@ -295,7 +295,12 @@ export default function MissionTelemetryPage() {
         <>
           <div className="grid gap-6 xl:grid-cols-[2fr_1fr] xl:items-stretch">
             <div className="h-full min-h-[420px]">
-              <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
+              <TelemetryMap
+                waypoints={mission?.waypoints}
+                trail={points}
+                latestPoint={latestPoint}
+                geofences={mission?.active_geofences}
+              />
             </div>
             <div className="flex h-full flex-col gap-4">
               <Card>

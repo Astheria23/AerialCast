@@ -1,5 +1,5 @@
 import type { ChecklistType } from './checklists.types';
-import type { GeofenceType } from './geofences.types';
+import type { GeofencePoint, GeofenceType } from './geofences.types';
 
 export type MissionStatus =
   | 'DRAFT'
@@ -20,6 +20,7 @@ export interface MissionGeofenceRef {
   geofence_id: string;
   area_name: string;
   type: GeofenceType | string;
+  points?: GeofencePoint[];
 }
 
 export interface MissionWaypoint {

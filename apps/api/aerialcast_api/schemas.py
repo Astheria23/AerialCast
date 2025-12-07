@@ -154,6 +154,7 @@ class GeofenceRefSchema(Schema):
     geofence_id = fields.UUID(dump_only=True)
     area_name = fields.String(dump_only=True)
     type = fields.String(dump_only=True)
+    points = fields.List(fields.Nested(lambda: GeofencePointSchema()), dump_only=True)
 
 
 class GeofencePointSchema(Schema):
