@@ -28,6 +28,8 @@ class MissionSchema(Schema):
     save_as_draft = fields.Boolean(load_default=False)
     checklist_ids = fields.List(fields.UUID(), load_default=list)
     required_checklists = fields.List(fields.Nested(lambda: ChecklistRefSchema()), dump_only=True)
+    geofence_ids = fields.List(fields.UUID(), load_default=list)
+    active_geofences = fields.List(fields.Nested(lambda: GeofenceRefSchema()), dump_only=True)
 
     def _dump_status(self, obj):
         return obj.status.name if getattr(obj, "status", None) else None
@@ -88,6 +90,7 @@ class MissionUpdateSchema(Schema):
     status = fields.String()
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
     checklist_ids = fields.List(fields.UUID())
+    geofence_ids = fields.List(fields.UUID())
 
 
 class TelemetryDataSchema(Schema):
@@ -147,6 +150,12 @@ class ChecklistRefSchema(Schema):
     type = fields.String(dump_only=True)
 
 
+class GeofenceRefSchema(Schema):
+    geofence_id = fields.UUID(dump_only=True)
+    area_name = fields.String(dump_only=True)
+    type = fields.String(dump_only=True)
+
+
 class GeofencePointSchema(Schema):
     point_id = fields.UUID(dump_only=True)
     latitude = fields.Float(required=True)
@@ -197,6 +206,7 @@ __all__ = [
     "ChecklistSchema",
     "ChecklistUpdateSchema",
     "ChecklistRefSchema",
+    "GeofenceRefSchema",
     "GeofencePointSchema",
     "GeofenceSchema",
     "GeofenceUpdateSchema",

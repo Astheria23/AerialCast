@@ -8,10 +8,11 @@ from ..models.enums import DroneStatus, MissionStatus, SessionStatus, UserRole
 from ..models.execution import FlightSession
 from ..models.planning import Mission, MissionWaypoint
 from ..repositories import (
-	ChecklistRepository,
-	DroneRepository,
-	MissionRepository,
-	UserRepository,
+    ChecklistRepository,
+    DroneRepository,
+    GeofenceRepository,
+    MissionRepository,
+    UserRepository,
 )
 
 
@@ -19,6 +20,7 @@ class MissionService:
     mission_repository = MissionRepository
     drone_repository = DroneRepository
     checklist_repository = ChecklistRepository
+    geofence_repository = GeofenceRepository
     user_repository = UserRepository
 
     @classmethod
@@ -67,6 +69,26 @@ class MissionService:
         return found, None, None
 
     @classmethod
+    def _resolve_geofences(cls, geofence_ids):
+        if geofence_ids is not None and not isinstance(geofence_ids, list):
+            return [], {"error": "geofence_ids harus berupa list UUID"}, 400
+        geofence_ids = geofence_ids or []
+        if len(geofence_ids) != len(set(geofence_ids)):
+            return [], {"error": "Duplikat geofence_ids tidak diperbolehkan"}, 400
+        if not geofence_ids:
+            return [], None, None
+
+        found = list(cls.geofence_repository.find_by_ids(geofence_ids))
+        found_ids = {geofence.geofence_id for geofence in found}
+        missing = [str(gid) for gid in geofence_ids if gid not in found_ids]
+        if missing:
+            return [], {
+                "error": "Geofence tidak ditemukan",
+                "missing_ids": missing,
+            }, 400
+        return found, None, None
+
+    @classmethod
     def create_mission(cls, data: dict, user_id):
         creator = cls.user_repository.get(user_id)
         if not creator:
@@ -107,6 +129,13 @@ class MissionService:
             return error_payload, error_status
         for checklist in resolved_checklists:
             new_mission.required_checklists.append(checklist)
+
+        geofence_ids = data.get("geofence_ids", [])
+        resolved_geofences, geo_error_payload, geo_error_status = cls._resolve_geofences(geofence_ids)
+        if geo_error_payload:
+            return geo_error_payload, geo_error_status
+        for geofence in resolved_geofences:
+            new_mission.active_geofences.append(geofence)
 
         repo = cls.mission_repository
 
@@ -176,6 +205,15 @@ class MissionService:
             mission.required_checklists.clear()
             for checklist in resolved_checklists:
                 mission.required_checklists.append(checklist)
+
+        if "geofence_ids" in data:
+            geofence_ids = data.get("geofence_ids")
+            resolved_geofences, geo_error_payload, geo_error_status = cls._resolve_geofences(geofence_ids)
+            if geo_error_payload:
+                return geo_error_payload, geo_error_status
+            mission.active_geofences.clear()
+            for geofence in resolved_geofences:
+                mission.active_geofences.append(geofence)
         try:
             repo.commit()
             return mission, 200
