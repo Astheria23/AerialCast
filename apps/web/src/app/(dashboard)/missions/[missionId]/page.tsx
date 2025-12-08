@@ -127,6 +127,8 @@ export default function MissionTelemetryPage() {
     () => events.filter((event) => event.severity && event.severity !== 'info'),
     [events]
   );
+  const droneLabel = mission?.drone_name ?? mission?.drone_id ?? '—';
+  const pilotLabel = mission?.pilot_name ?? 'Unassigned';
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -169,7 +171,8 @@ export default function MissionTelemetryPage() {
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="text-3xl font-bold">{mission.mission_name}</CardTitle>
-              <p className="text-muted-foreground">Assigned drone {mission.drone_id}</p>
+              <p className="text-muted-foreground">Assigned drone {droneLabel}</p>
+              <p className="text-muted-foreground">Pilot {pilotLabel}</p>
             </div>
             <div className="flex w-full flex-col items-end gap-3">
               <div className="flex flex-wrap items-center gap-3">

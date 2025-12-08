@@ -60,6 +60,7 @@ export function MissionCard({
   const statusClass = statusClasses[status] ?? "bg-slate-100 text-slate-800"
   const availableActions = statusActionMap[status] ?? []
   const filteredActions = availableActions.filter((action) => (canPerformAction ? canPerformAction(action) : true))
+  const resolvedDroneName = mission.drone_name ?? droneName ?? mission.drone_id
 
   return (
     <Card className="overflow-hidden">
@@ -79,7 +80,7 @@ export function MissionCard({
         </div>
         <div>
           <p className="text-muted-foreground text-xs">Drone</p>
-          <p className="font-medium">{droneName || mission.drone_id}</p>
+          <p className="font-medium">{resolvedDroneName}</p>
         </div>
         {formattedDate && (
           <div>

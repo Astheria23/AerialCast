@@ -36,6 +36,7 @@ export interface Mission {
   mission_name: string;
   notes?: string | null;
   drone_id: string;
+  drone_name?: string | null;
   created_by_user_id?: string;
   pilot_name?: string | null;
   created_at?: string;

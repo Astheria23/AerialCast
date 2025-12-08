@@ -104,6 +104,7 @@ class MissionService:
         new_mission.drone_id = data["drone_id"]
         new_mission.created_by_user_id = user_id
         new_mission.creator = creator
+        new_mission.drone = drone
 
         if data.get("save_as_draft"):
             new_mission.status = MissionStatus.DRAFT
@@ -176,6 +177,7 @@ class MissionService:
             if not drone:
                 return {"error": "Drone not found"}, 404
             mission.drone_id = data["drone_id"]
+            mission.drone = drone
 
         if "status" in data:
             return {"error": "Use status action endpoint to change mission status"}, 400
