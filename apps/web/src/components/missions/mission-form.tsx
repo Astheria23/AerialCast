@@ -6,6 +6,8 @@ import { useMemo, useState, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import type { Checklist } from "@/types/checklists.types"
+import type { Geofence } from "@/types/geofences.types"
 import type { Drone } from "@/types/drones.types"
 import type { Mission, MissionStatus, MissionWaypoint } from "@/types/missions.types"
 
@@ -38,12 +40,16 @@ export interface MissionFormPayload {
   save_as_draft?: boolean
   status?: MissionStatus | string
   waypoints: MissionWaypoint[]
+  checklist_ids?: string[]
+  geofence_ids?: string[]
 }
 
 const MissionWaypointsMap = dynamic(() => import("./mission-waypoints-map"), { ssr: false })
 
 interface MissionFormProps {
   drones: Drone[]
+  checklists: Checklist[]
+  geofences: Geofence[]
   mode: "create" | "edit"
   initialData?: Mission | null
   onSubmit: (payload: MissionFormPayload) => Promise<void> | void
@@ -52,7 +58,7 @@ interface MissionFormProps {
   error?: string | null
 }
 
-export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isSubmitting, error }: MissionFormProps) {
+export function MissionForm({ drones, checklists, geofences, mode, initialData, onSubmit, onCancel, isSubmitting, error }: MissionFormProps) {
   const [values, setValues] = useState({
     mission_name: initialData?.mission_name ?? "",
     drone_id: initialData?.drone_id ?? "",
@@ -60,6 +66,22 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
     save_as_draft: initialData?.status === "DRAFT" || !!initialData?.save_as_draft,
     status: initialData?.status ?? "DRAFT",
   })
+
+  const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>(
+    initialData?.checklist_ids?.length
+      ? [...initialData.checklist_ids]
+      : initialData?.required_checklists?.length
+        ? initialData.required_checklists.map((item) => item.checklist_id)
+        : []
+  )
+
+  const [selectedGeofenceIds, setSelectedGeofenceIds] = useState<string[]>(
+    initialData?.geofence_ids?.length
+      ? [...initialData.geofence_ids]
+      : initialData?.active_geofences?.length
+        ? initialData.active_geofences.map((item) => item.geofence_id)
+        : []
+  )
 
   const [waypoints, setWaypoints] = useState<WaypointFormValue[]>(() => {
     if (initialData?.waypoints?.length) {
@@ -126,6 +148,18 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
     setWaypoints((prev) => prev.map((wp, idx) => (idx === index ? { ...wp, [field]: value } : wp)))
   }
 
+  const toggleChecklist = (checklistId: string) => {
+    setSelectedChecklistIds((prev) =>
+      prev.includes(checklistId) ? prev.filter((id) => id !== checklistId) : [...prev, checklistId]
+    )
+  }
+
+  const toggleGeofence = (geofenceId: string) => {
+    setSelectedGeofenceIds((prev) =>
+      prev.includes(geofenceId) ? prev.filter((id) => id !== geofenceId) : [...prev, geofenceId]
+    )
+  }
+
   const handleAddWaypoint = () => {
     setWaypoints((prev) => [...prev, { ...defaultWaypoint }])
   }
@@ -176,6 +210,8 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
       save_as_draft: values.save_as_draft,
       status: mode === "edit" ? values.status : undefined,
       waypoints: preparedWaypoints,
+      checklist_ids: selectedChecklistIds,
+      geofence_ids: selectedGeofenceIds,
     })
   }
 
@@ -239,6 +275,92 @@ export function MissionForm({ drones, mode, initialData, onSubmit, onCancel, isS
           className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           placeholder="Operational notes or objectives"
         />
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="space-y-3 rounded-xl border border-dashed p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Required checklists</Label>
+              <p className="text-xs text-muted-foreground">Attach pre/post flight steps to run before arming.</p>
+            </div>
+            <Button asChild variant="link" className="px-0 text-xs">
+              <a href="/checklists" target="_blank" rel="noreferrer">
+                Manage
+              </a>
+            </Button>
+          </div>
+          {checklists.length ? (
+            <div className="space-y-2">
+              {checklists.map((checklist) => {
+                const checked = selectedChecklistIds.includes(checklist.checklist_id)
+                return (
+                  <label
+                    key={checklist.checklist_id}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={checked}
+                      onChange={() => toggleChecklist(checklist.checklist_id)}
+                    />
+                    <span>
+                      <span className="font-medium">{checklist.title}</span>
+                      <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs uppercase tracking-wide">
+                        {String(checklist.type).replace(/_/g, " ")}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No checklists yet. Create one to standardize procedures.</p>
+          )}
+        </div>
+
+        <div className="space-y-3 rounded-xl border border-dashed p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label>Active geofences</Label>
+              <p className="text-xs text-muted-foreground">Select corridors or keep-out zones to enforce mid-flight.</p>
+            </div>
+            <Button asChild variant="link" className="px-0 text-xs">
+              <a href="/geofences" target="_blank" rel="noreferrer">
+                Manage
+              </a>
+            </Button>
+          </div>
+          {geofences.length ? (
+            <div className="space-y-2">
+              {geofences.map((geofence) => {
+                const checked = selectedGeofenceIds.includes(geofence.geofence_id)
+                return (
+                  <label
+                    key={geofence.geofence_id}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-sm"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={checked}
+                      onChange={() => toggleGeofence(geofence.geofence_id)}
+                    />
+                    <span>
+                      <span className="font-medium">{geofence.area_name}</span>
+                      <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs uppercase tracking-wide">
+                        {String(geofence.type).replace(/_/g, " ")}
+                      </span>
+                    </span>
+                  </label>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No geofences defined. Create one to limit airspace.</p>
+          )}
+        </div>
       </div>
 
       <div className="space-y-4">

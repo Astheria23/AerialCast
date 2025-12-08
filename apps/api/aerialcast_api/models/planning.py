@@ -61,6 +61,8 @@ class Mission(db.Model):
             "pilot_name": self.creator.full_name if getattr(self, "creator", None) else None,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "waypoints": [wp.to_dict() for wp in self.waypoints],
+            "checklist_ids": [str(ch.checklist_id) for ch in self.required_checklists],
+            "geofence_ids": [str(gf.geofence_id) for gf in self.active_geofences],
             "required_checklists": [
                 {
                     "checklist_id": str(ch.checklist_id),
@@ -69,7 +71,32 @@ class Mission(db.Model):
                 }
                 for ch in self.required_checklists
             ],
+            "active_geofences": [
+                {
+                    "geofence_id": str(gf.geofence_id),
+                    "area_name": gf.area_name,
+                    "type": gf.type.value,
+                    "points": [
+                        {
+                            "point_id": str(point.point_id),
+                            "latitude": point.latitude,
+                            "longitude": point.longitude,
+                            "order": point.order,
+                        }
+                        for point in sorted(getattr(gf, "points", []), key=lambda p: p.order)
+                    ],
+                }
+                for gf in self.active_geofences
+            ],
         }
+
+    @property
+    def checklist_ids(self):
+        return [checklist.checklist_id for checklist in self.required_checklists]
+
+    @property
+    def geofence_ids(self):
+        return [geofence.geofence_id for geofence in self.active_geofences]
 
 
 class MissionWaypoint(db.Model):

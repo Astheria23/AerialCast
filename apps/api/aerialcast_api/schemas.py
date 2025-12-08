@@ -21,16 +21,31 @@ class MissionSchema(Schema):
     notes = fields.String()
     drone_id = fields.UUID(required=True)
     created_by_user_id = fields.UUID(dump_only=True)
-    pilot_name = fields.String(dump_only=True)
+    pilot_name = fields.Method("_dump_pilot_name", dump_only=True)
+    drone_name = fields.Method("_dump_drone_name", dump_only=True)
     created_at = fields.DateTime(dump_only=True)
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema), required=True)
     status = fields.Method("_dump_status", dump_only=True)
     save_as_draft = fields.Boolean(load_default=False)
     checklist_ids = fields.List(fields.UUID(), load_default=list)
     required_checklists = fields.List(fields.Nested(lambda: ChecklistRefSchema()), dump_only=True)
+    geofence_ids = fields.List(fields.UUID(), load_default=list)
+    active_geofences = fields.List(fields.Nested(lambda: GeofenceRefSchema()), dump_only=True)
 
     def _dump_status(self, obj):
         return obj.status.name if getattr(obj, "status", None) else None
+
+    def _dump_pilot_name(self, obj):
+        creator = getattr(obj, "creator", None)
+        if creator and getattr(creator, "full_name", None):
+            return creator.full_name
+        return None
+
+    def _dump_drone_name(self, obj):
+        drone = getattr(obj, "drone", None)
+        if drone and getattr(drone, "name", None):
+            return drone.name
+        return None
 
 
 class UserRegisterSchema(Schema):
@@ -47,10 +62,7 @@ class UserLoginSchema(Schema):
 
 class UserResponseSchema(Schema):
     user_id = fields.UUID(dump_only=True)
-    email = fields.Email()
-    full_name = fields.String()
-    role = fields.String()
-    created_at = fields.DateTime()
+    email = 1
 
 
 class DroneSchema(Schema):
@@ -88,6 +100,7 @@ class MissionUpdateSchema(Schema):
     status = fields.String()
     waypoints = fields.List(fields.Nested(MissionWaywpointSchema))
     checklist_ids = fields.List(fields.UUID())
+    geofence_ids = fields.List(fields.UUID())
 
 
 class TelemetryDataSchema(Schema):
@@ -147,6 +160,25 @@ class ChecklistRefSchema(Schema):
     type = fields.String(dump_only=True)
 
 
+class GeofenceRefSchema(Schema):
+    geofence_id = fields.UUID(dump_only=True)
+    area_name = fields.String(dump_only=True)
+    type = fields.Method("_dump_type", dump_only=True)
+    points = fields.Method("_dump_points", dump_only=True)
+
+    def _dump_type(self, obj):
+        value = getattr(obj, "type", None)
+        return value.name if value else None
+
+    def _dump_points(self, obj):
+        points = getattr(obj, "points", None)
+        if not points:
+            return []
+
+        ordered = sorted(points, key=lambda point: getattr(point, "order", 0) or 0)
+        return GeofencePointSchema(many=True).dump(ordered)
+
+
 class GeofencePointSchema(Schema):
     point_id = fields.UUID(dump_only=True)
     latitude = fields.Float(required=True)
@@ -197,6 +229,7 @@ __all__ = [
     "ChecklistSchema",
     "ChecklistUpdateSchema",
     "ChecklistRefSchema",
+    "GeofenceRefSchema",
     "GeofencePointSchema",
     "GeofenceSchema",
     "GeofenceUpdateSchema",

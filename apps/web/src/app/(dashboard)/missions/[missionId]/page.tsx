@@ -127,6 +127,8 @@ export default function MissionTelemetryPage() {
     () => events.filter((event) => event.severity && event.severity !== 'info'),
     [events]
   );
+  const droneLabel = mission?.drone_name ?? mission?.drone_id ?? '—';
+  const pilotLabel = mission?.pilot_name ?? 'Unassigned';
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -169,7 +171,8 @@ export default function MissionTelemetryPage() {
           <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle className="text-3xl font-bold">{mission.mission_name}</CardTitle>
-              <p className="text-muted-foreground">Assigned drone {mission.drone_id}</p>
+              <p className="text-muted-foreground">Assigned drone {droneLabel}</p>
+              <p className="text-muted-foreground">Pilot {pilotLabel}</p>
             </div>
             <div className="flex w-full flex-col items-end gap-3">
               <div className="flex flex-wrap items-center gap-3">
@@ -223,35 +226,62 @@ export default function MissionTelemetryPage() {
             </div>
           </CardHeader>
           <CardContent className="grid gap-4 md:grid-cols-3">
-            <div>
+            <div className="space-y-2">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Notes</p>
               <p>{mission.notes || 'No notes provided'}</p>
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Checklist links</p>
-              {mission.checklist_ids?.length ? (
-                <ul className="list-disc pl-4 text-sm text-muted-foreground">
-                  {mission.checklist_ids.map((item) => (
-                    <li key={item}>{item}</li>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Required checklists</p>
+              {mission.required_checklists?.length ? (
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {mission.required_checklists.map((item) => (
+                    <li key={item.checklist_id} className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+                      <span className="font-medium text-foreground">{item.title}</span>
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] uppercase tracking-wide">
+                        {String(item.type).replace(/_/g, ' ')}
+                      </span>
+                    </li>
                   ))}
                 </ul>
               ) : (
                 <p className="text-sm text-muted-foreground">No checklist attached</p>
               )}
             </div>
-            <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Waypoint preview</p>
-              {mission.waypoints?.length ? (
-                <p className="text-sm text-muted-foreground">
-                  Start @ {mission.waypoints[0].latitude.toFixed(4)}, {mission.waypoints[0].longitude.toFixed(4)}
-                </p>
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Active geofences</p>
+              {mission.active_geofences?.length ? (
+                <ul className="space-y-1 text-sm text-muted-foreground">
+                  {mission.active_geofences.map((geo) => (
+                    <li key={geo.geofence_id} className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-2">
+                      <span className="font-medium text-foreground">{geo.area_name}</span>
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] uppercase tracking-wide">
+                        {String(geo.type).replace(/_/g, ' ')}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">No waypoints plotted</p>
+                <p className="text-sm text-muted-foreground">No geofence enforced</p>
               )}
             </div>
           </CardContent>
         </Card>
       )}
+
+      {mission?.waypoints?.length ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Waypoint preview</CardTitle>
+            <p className="text-sm text-muted-foreground">First plotted coordinate and total count.</p>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-dashed border-border/60 bg-card/70 px-4 py-3 text-sm text-muted-foreground">
+              Start @ {mission.waypoints[0].latitude.toFixed(4)}, {mission.waypoints[0].longitude.toFixed(4)} · {mission.waypoints.length}{' '}
+              {mission.waypoints.length === 1 ? 'waypoint' : 'waypoints'} planned.
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {!isMissionCompleted && !canStreamTelemetry && mission && (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -268,7 +298,12 @@ export default function MissionTelemetryPage() {
         <>
           <div className="grid gap-6 xl:grid-cols-[2fr_1fr] xl:items-stretch">
             <div className="h-full min-h-[420px]">
-              <TelemetryMap waypoints={mission?.waypoints} trail={points} latestPoint={latestPoint} />
+              <TelemetryMap
+                waypoints={mission?.waypoints}
+                trail={points}
+                latestPoint={latestPoint}
+                geofences={mission?.active_geofences}
+              />
             </div>
             <div className="flex h-full flex-col gap-4">
               <Card>

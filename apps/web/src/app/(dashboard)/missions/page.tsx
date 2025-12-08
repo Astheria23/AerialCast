@@ -12,8 +12,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ErrorDialog } from "@/components/ui/error-dialog"
 import { Input } from "@/components/ui/input"
 import { useToast } from "@/components/ui/use-toast"
+import { useChecklists } from "@/hooks/checklists.hooks"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useDrones } from "@/hooks/drones.hooks"
+import { useGeofences } from "@/hooks/geofences.hooks"
 import { useMissions } from "@/hooks/missions.hooks"
 import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { Mission, MissionStatus, MissionStatusAction } from "@/types/missions.types"
@@ -21,6 +23,8 @@ import type { Mission, MissionStatus, MissionStatusAction } from "@/types/missio
 export default function MissionsPage() {
   const { user, isAdmin, isPilot } = useAuth()
   const { drones, fetchDrones } = useDrones()
+  const { checklists, fetchChecklists } = useChecklists()
+  const { geofences, fetchGeofences } = useGeofences()
   const {
     missions,
     loading,
@@ -52,6 +56,14 @@ export default function MissionsPage() {
   useEffect(() => {
     fetchDrones().catch(() => null)
   }, [fetchDrones])
+
+  useEffect(() => {
+    fetchChecklists().catch(() => null)
+  }, [fetchChecklists])
+
+  useEffect(() => {
+    fetchGeofences().catch(() => null)
+  }, [fetchGeofences])
 
   const droneLookup = useMemo(() => {
     const map: Record<string, string> = {}
@@ -94,6 +106,8 @@ export default function MissionsPage() {
         notes: payload.notes,
         save_as_draft: payload.save_as_draft,
         waypoints: payload.waypoints,
+        checklist_ids: payload.checklist_ids,
+        geofence_ids: payload.geofence_ids,
       })
       closeForm()
       toast({
@@ -126,6 +140,8 @@ export default function MissionsPage() {
         save_as_draft: payload.save_as_draft,
         status: payload.status,
         waypoints: payload.waypoints,
+        checklist_ids: payload.checklist_ids,
+        geofence_ids: payload.geofence_ids,
       })
       closeForm()
       toast({
@@ -339,6 +355,8 @@ export default function MissionsPage() {
             <MissionForm
               key={formMode === "edit" ? editingMission?.mission_id : "create"}
               drones={drones}
+              checklists={checklists}
+              geofences={geofences}
               mode={formMode}
               initialData={editingMission ?? undefined}
               onSubmit={formMode === "create" ? handleCreateMission : handleEditMission}
