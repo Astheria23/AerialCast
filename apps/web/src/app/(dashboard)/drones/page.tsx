@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Plus, Loader2 } from "lucide-react"
 
 import { DroneCard } from "@/components/drones/drone-card"
+import { DroneDetailsDialog } from "@/components/drones/drone-details-dialog"
 import { DroneUpsertDialog } from "@/components/drones/drone-upsert-dialog"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
@@ -31,6 +32,8 @@ export default function DronesPage() {
   const [isDialogOpen, setDialogOpen] = useState(false)
   const [editingDrone, setEditingDrone] = useState<Drone | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [detailsDrone, setDetailsDrone] = useState<Drone | null>(null)
+  const [isDetailsOpen, setDetailsOpen] = useState(false)
 
   useEffect(() => {
     fetchDrones().catch(() => null)
@@ -69,6 +72,24 @@ export default function DronesPage() {
   const handleDialogClose = () => {
     setDialogOpen(false)
     setEditingDrone(null)
+  }
+
+  const handleViewDetails = (drone: Drone) => {
+    setDetailsDrone(drone)
+    setDetailsOpen(true)
+  }
+
+  const handleDetailsClose = () => {
+    setDetailsOpen(false)
+    setDetailsDrone(null)
+  }
+
+  const handleDetailsOpenChange = (open: boolean) => {
+    if (!open) {
+      handleDetailsClose()
+    } else {
+      setDetailsOpen(true)
+    }
   }
 
   const handleUpsert = async (payload: {
@@ -192,7 +213,7 @@ export default function DronesPage() {
               drone={drone}
               onEdit={isAdmin ? () => handleOpenEdit(drone) : undefined}
               onDelete={isAdmin ? handleDelete : undefined}
-              onViewDetail={() => console.log("View detail for drone:", drone)}
+              onViewDetail={() => handleViewDetails(drone)}
             />
           ))}
         </div>
@@ -207,6 +228,8 @@ export default function DronesPage() {
           initialData={editingDrone}
         />
       )}
+
+      <DroneDetailsDialog drone={detailsDrone} open={isDetailsOpen} onOpenChange={handleDetailsOpenChange} />
     </div>
   )
 }

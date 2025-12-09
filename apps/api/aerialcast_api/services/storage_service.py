@@ -74,18 +74,32 @@ class StorageService:
         object_path = f"drones/{drone_id}/{uuid.uuid4().hex}{extension}"
 
         client = cls._get_client()
-        file_options = {"content-type": mime_type, "upsert": "true"}
+        file_options = {"content-type": mime_type, "upsert": True}
         buffer = BytesIO(file_bytes)
         buffer.seek(0)
 
         try:
-            client.storage.from_(bucket).upload(object_path, buffer, file_options)
+            client.storage.from_(bucket).upload(object_path, buffer, file_options)  # type: ignore[arg-type]
         except Exception as exc:  # pragma: no cover - library raises varied exceptions
             current_app.logger.exception("Failed to upload drone image to Supabase")
             raise StorageServiceError("Failed to upload drone image") from exc
 
-        public_url = client.storage.from_(bucket).get_public_url(object_path)
-        if not public_url:
+        public_response = client.storage.from_(bucket).get_public_url(object_path)
+        public_url: str | None = None
+
+        if isinstance(public_response, str):
+            public_url = public_response
+        elif isinstance(public_response, dict):
+            data = public_response.get("data") if isinstance(public_response.get("data"), dict) else public_response
+            if isinstance(data, dict):
+                public_url = data.get("publicUrl") or data.get("publicURL")
+        else:
+            # Supabase client may return a typed object with attribute access.
+            candidate = getattr(public_response, "public_url", None) or getattr(public_response, "publicUrl", None)
+            if isinstance(candidate, str):
+                public_url = candidate
+
+        if not public_url or not isinstance(public_url, str):
             raise StorageServiceError("Unable to retrieve public URL for uploaded image")
         return public_url
 

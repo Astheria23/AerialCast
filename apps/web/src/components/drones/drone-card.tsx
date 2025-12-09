@@ -17,12 +17,12 @@ interface DroneCardProps {
 }
 
 export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardProps) {
-  const { isAdmin, isPilot } = useAuth()
+  const { isAdmin } = useAuth()
   const imageUrl = drone.specs?.image_url ?? undefined
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
       {imageUrl && (
-        <div className="relative h-40 w-full bg-muted">
+        <div className="relative aspect-square w-full bg-muted">
           <Image
             src={imageUrl}
             alt={`${drone.name} image`}
@@ -95,7 +95,18 @@ export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardPr
           </p>
         )}
       </CardContent>
-      <div className="px-6 py-3 bg-muted/50 flex gap-2 justify-end">
+      <div className="px-6 py-3 bg-muted/50 flex flex-wrap gap-2 justify-end">
+        {onViewDetail && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onViewDetail(drone)}
+            className="gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            View details
+          </Button>
+        )}
         {isAdmin && onEdit && (
           <Button
             size="sm"
@@ -116,17 +127,6 @@ export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardPr
           >
             <Trash2 className="w-4 h-4" />
             Delete
-          </Button>
-        )}
-        {isPilot && onViewDetail && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onViewDetail(drone)}
-            className="gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            See Detail
           </Button>
         )}
       </div>
