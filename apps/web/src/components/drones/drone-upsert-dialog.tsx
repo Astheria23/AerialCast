@@ -1,7 +1,7 @@
 "use client"
 
 import Image from "next/image"
-import { useState, useMemo, type FormEvent, type ChangeEvent } from "react"
+import { useState, useMemo, useEffect, type FormEvent, type ChangeEvent } from "react"
 import { Loader2, Upload, X } from "lucide-react"
 
 import {
@@ -31,8 +31,8 @@ interface DroneUpsertDialogProps {
   initialData?: Drone | null
 }
 
-export function DroneUpsertDialog({ open, onClose, onSubmit, isSubmitting, initialData }: DroneUpsertDialogProps) {
-  const [formValues, setFormValues] = useState(() => ({
+function buildInitialFormValues(initialData?: Drone | null) {
+  return {
     name: initialData?.name ?? "",
     model: initialData?.model ?? "",
     lora_id: initialData?.lora_id ?? "",
@@ -48,7 +48,11 @@ export function DroneUpsertDialog({ open, onClose, onSubmit, isSubmitting, initi
       additional_info: initialData?.specs?.additional_info ?? "",
       image_base64: null as string | null,
     } satisfies DroneSpecsInput,
-  }))
+  }
+}
+
+export function DroneUpsertDialog({ open, onClose, onSubmit, isSubmitting, initialData }: DroneUpsertDialogProps) {
+  const [formValues, setFormValues] = useState(() => buildInitialFormValues(initialData))
   const [preview, setPreview] = useState<string | null>(initialData?.specs?.image_url ?? null)
 
   const dialogTitle = initialData ? "Edit drone" : "Add drone"
@@ -65,25 +69,19 @@ export function DroneUpsertDialog({ open, onClose, onSubmit, isSubmitting, initi
   )
 
   const resetForm = () => {
-    setFormValues({
-      name: initialData?.name ?? "",
-      model: initialData?.model ?? "",
-      lora_id: initialData?.lora_id ?? "",
-      specs: {
-        flight_controller: initialData?.specs?.flight_controller ?? "",
-        motor: initialData?.specs?.motor ?? "",
-        esc: initialData?.specs?.esc ?? "",
-        propeller: initialData?.specs?.propeller ?? "",
-        battery: initialData?.specs?.battery ?? "",
-        gps_module: initialData?.specs?.gps_module ?? "",
-        weight_g: initialData?.specs?.weight_g ?? undefined,
-        max_flight_time_min: initialData?.specs?.max_flight_time_min ?? undefined,
-        additional_info: initialData?.specs?.additional_info ?? "",
-        image_base64: null,
-      },
-    })
+    setFormValues(buildInitialFormValues(initialData))
     setPreview(initialData?.specs?.image_url ?? null)
   }
+
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+    queueMicrotask(() => {
+      setFormValues(buildInitialFormValues(initialData))
+      setPreview(initialData?.specs?.image_url ?? null)
+    })
+  }, [initialData, open])
 
   const handleOpenChange = (nextOpen: boolean) => {
     if (!nextOpen) {
