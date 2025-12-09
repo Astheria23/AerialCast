@@ -1,9 +1,14 @@
 """Drone fleet CRUD services."""
 
+from __future__ import annotations
+
+from flask import current_app
 from flask_smorest import abort
+from sqlalchemy.exc import IntegrityError
 
 from ..models.master import Drone
 from ..repositories import DroneRepository
+from .storage_service import StorageService, StorageServiceError
 
 
 class FleetService:
@@ -22,11 +27,13 @@ class FleetService:
     }
 
     @classmethod
-    def _extract_specs(cls, payload: dict) -> dict:
+    def _extract_specs(cls, payload: dict) -> tuple[dict, str | None]:
         specs_data = payload.pop("specs", None)
         if not isinstance(specs_data, dict):
-            return {}
-        return {k: v for k, v in specs_data.items() if k in cls._allowed_specs_keys}
+            return {}, None
+        image_payload = specs_data.pop("image_base64", None)
+        filtered = {k: v for k, v in specs_data.items() if k in cls._allowed_specs_keys}
+        return filtered, image_payload
 
     @classmethod
     def _get_or_404(cls, drone_id):
@@ -38,12 +45,20 @@ class FleetService:
     @classmethod
     def create_drone(cls, data: dict):
         repo = cls.drone_repository
-        specs_payload = cls._extract_specs(data)
+        specs_payload, image_payload = cls._extract_specs(data)
 
         if repo.find_by_lora_id(data["lora_id"]):
             return {"error": "LoRa ID already registered"}, 409
 
         new_drone = Drone(**data)
+
+        if image_payload:
+            try:
+                uploaded_url = StorageService.upload_drone_image(new_drone.drone_id, image_payload)
+                specs_payload = {**specs_payload, "image_url": uploaded_url}
+            except StorageServiceError as exc:
+                current_app.logger.warning("Drone image upload failed: %s", exc)
+                return {"error": str(exc)}, 500
 
         try:
             repo.add(new_drone)
@@ -67,10 +82,18 @@ class FleetService:
     def update_drone(cls, drone_id, data: dict):
         drone = cls._get_or_404(drone_id)
         repo = cls.drone_repository
-        specs_payload = cls._extract_specs(data)
+        specs_payload, image_payload = cls._extract_specs(data)
 
         for key, value in data.items():
             setattr(drone, key, value)
+
+        if image_payload:
+            try:
+                uploaded_url = StorageService.upload_drone_image(drone.drone_id, image_payload)
+                specs_payload = {**specs_payload, "image_url": uploaded_url}
+            except StorageServiceError as exc:
+                current_app.logger.warning("Drone image upload failed: %s", exc)
+                return {"error": str(exc)}, 500
 
         if specs_payload:
             repo.set_specs(drone, specs_payload)
@@ -86,9 +109,16 @@ class FleetService:
     def delete_drone(cls, drone_id):
         drone = cls._get_or_404(drone_id)
         repo = cls.drone_repository
-        repo.delete(drone)
-        repo.commit()
-        return {"message": "Drone deleted successfully"}, 200
+        try:
+            repo.delete(drone)
+            repo.commit()
+        except IntegrityError:
+            repo.rollback()
+            return {"error": "Drone is referenced by other records and cannot be deleted."}, 409
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            repo.rollback()
+            return {"error": str(exc)}, 500
+        return None, 204
 
 
 __all__ = ["FleetService"]

@@ -1,5 +1,7 @@
 "use client"
 
+import Image from "next/image"
+
 import { Drone } from "@/types/drones.types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -15,9 +17,22 @@ interface DroneCardProps {
 }
 
 export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardProps) {
-  const { isAdmin, isPilot } = useAuth()
+  const { isAdmin } = useAuth()
+  const imageUrl = drone.specs?.image_url ?? undefined
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow">
+      {imageUrl && (
+        <div className="relative aspect-square w-full bg-muted">
+          <Image
+            src={imageUrl}
+            alt={`${drone.name} image`}
+            fill
+            className="object-cover"
+            sizes="(min-width: 768px) 33vw, 100vw"
+            priority={false}
+          />
+        </div>
+      )}
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -42,14 +57,56 @@ export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardPr
             <p className="font-mono text-xs mt-1 truncate">{drone.lora_id}</p>
           </div>
         </div>
-        <div>
+        <div className="text-sm">
           <p className="text-muted-foreground text-xs">Created</p>
           <p className="text-sm mt-1">
             {format(new Date(drone.created_at), "dd MMM yyyy HH:mm")}
           </p>
         </div>
+        <div className="grid grid-cols-2 gap-3 text-xs">
+          {drone.specs?.flight_controller && (
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wide">Flight controller</p>
+              <p className="mt-1 font-medium text-foreground">{drone.specs.flight_controller}</p>
+            </div>
+          )}
+          {drone.specs?.motor && (
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wide">Motor</p>
+              <p className="mt-1 font-medium text-foreground">{drone.specs.motor}</p>
+            </div>
+          )}
+          {drone.specs?.battery && (
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wide">Battery</p>
+              <p className="mt-1 font-medium text-foreground">{drone.specs.battery}</p>
+            </div>
+          )}
+          {typeof drone.specs?.max_flight_time_min === "number" && (
+            <div>
+              <p className="text-muted-foreground uppercase tracking-wide">Max flight time</p>
+              <p className="mt-1 font-medium text-foreground">{drone.specs.max_flight_time_min} min</p>
+            </div>
+          )}
+        </div>
+        {drone.specs?.additional_info && (
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {drone.specs.additional_info}
+          </p>
+        )}
       </CardContent>
-      <div className="px-6 py-3 bg-muted/50 flex gap-2 justify-end">
+      <div className="px-6 py-3 bg-muted/50 flex flex-wrap gap-2 justify-end">
+        {onViewDetail && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onViewDetail(drone)}
+            className="gap-2"
+          >
+            <Eye className="w-4 h-4" />
+            View details
+          </Button>
+        )}
         {isAdmin && onEdit && (
           <Button
             size="sm"
@@ -70,17 +127,6 @@ export function DroneCard({ drone, onEdit, onDelete, onViewDetail }: DroneCardPr
           >
             <Trash2 className="w-4 h-4" />
             Delete
-          </Button>
-        )}
-        {isPilot && onViewDetail && (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onViewDetail(drone)}
-            className="gap-2"
-          >
-            <Eye className="w-4 h-4" />
-            See Detail
           </Button>
         )}
       </div>
