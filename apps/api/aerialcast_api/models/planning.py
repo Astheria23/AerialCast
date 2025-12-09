@@ -50,9 +50,11 @@ class Mission(db.Model):
         DateTime(timezone=True), nullable=True
     )
 
-    creator: Mapped["User"] = relationship(back_populates="created_missions")
+    creator: Mapped["User"] = relationship(
+        back_populates="created_missions", foreign_keys=[created_by_user_id]
+    )
     assigned_pilot: Mapped[Optional["User"]] = relationship(
-        foreign_keys=[assigned_pilot_id]
+        back_populates="assigned_missions", foreign_keys=[assigned_pilot_id]
     )
     drone: Mapped["Drone"] = relationship(back_populates="missions")
     waypoints: Mapped[List["MissionWaypoint"]] = relationship(

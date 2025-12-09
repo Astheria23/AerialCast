@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 
+import { MissionPreflightPanel } from '@/components/missions/mission-preflight-panel';
 import { TelemetryEventFeed } from '@/components/telemetry/telemetry-event-feed';
 import { TelemetryMap } from '@/components/telemetry/telemetry-map';
 import { TelemetryStatusIndicator } from '@/components/telemetry/telemetry-status-indicator';
@@ -13,6 +14,7 @@ import { MissionReplayPanel } from '@/components/telemetry/mission-replay-panel'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/auth.hooks';
+import { useMissionPreflight } from '@/hooks/mission-preflight.hooks';
 import { useTelemetry } from '@/hooks/telemetry.hooks';
 import { missionsService } from '@/services/missions.service';
 import type { Mission, MissionStatusAction } from '@/types/missions.types';
@@ -21,6 +23,7 @@ const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-slate-100 text-slate-800',
   PENDING_APPROVAL: 'bg-amber-100 text-amber-800',
   APPROVED: 'bg-emerald-100 text-emerald-700',
+  READY_FOR_FLIGHT: 'bg-sky-100 text-sky-800',
   REJECTED: 'bg-rose-100 text-rose-700',
   IN_PROGRESS: 'bg-sky-100 text-sky-800',
   COMPLETED: 'bg-green-100 text-green-800',
@@ -36,29 +39,55 @@ export default function MissionTelemetryPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const {
+    preflight,
+    loading: preflightLoading,
+    error: preflightError,
+    fetchPreflight,
+    updatePreflight,
+    setPreflight,
+  } = useMissionPreflight({ missionId });
+  const [preflightUpdatingId, setPreflightUpdatingId] = useState<string | null>(null);
+  const [preflightActionError, setPreflightActionError] = useState<string | null>(null);
   const isMissionCompleted = mission?.status === 'COMPLETED';
+
+  const refreshMission = useCallback(async () => {
+    if (!missionId) return;
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await missionsService.getMissionById(missionId);
+      setMission(data);
+      setPreflight(data.preflight_checklist ?? null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load mission';
+      setError(message);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  }, [missionId, setPreflight]);
 
   useEffect(() => {
     if (!missionId) return;
-    const fetchMission = async () => {
+    void (async () => {
       try {
-        setLoading(true);
-        setError(null);
-        const data = await missionsService.getMissionById(missionId);
-        setMission(data);
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to load mission';
-        setError(message);
-      } finally {
-        setLoading(false);
+        await refreshMission();
+      } catch {
+        // mission error already handled above
       }
-    };
-    void fetchMission();
-  }, [missionId]);
+      try {
+        await fetchPreflight();
+        setPreflightActionError(null);
+      } catch {
+        // ignore, hook already exposes error state
+      }
+    })();
+  }, [missionId, refreshMission, fetchPreflight, setPreflightActionError]);
 
   const canStreamTelemetry = useMemo(() => {
     const status = mission?.status ?? 'DRAFT';
-    return status === 'APPROVED' || status === 'IN_PROGRESS';
+    return status === 'APPROVED' || status === 'IN_PROGRESS' || status === 'READY_FOR_FLIGHT';
   }, [mission?.status]);
 
   const canControlMission = useMemo(() => {
@@ -70,7 +99,7 @@ export default function MissionTelemetryPage() {
     return (isOwner && isPilot) || adminIsOwner;
   }, [isAdmin, isPilot, mission, user]);
 
-  const canStartMission = Boolean(mission?.status === 'APPROVED' && canControlMission);
+  const canStartMission = Boolean(mission?.status === 'READY_FOR_FLIGHT' && canControlMission);
   const canEndMission = Boolean(mission?.status === 'IN_PROGRESS' && canControlMission);
 
   const handleMissionStatusChange = useCallback(
@@ -81,6 +110,7 @@ export default function MissionTelemetryPage() {
       try {
         const updated = await missionsService.changeStatus(missionId, action);
         setMission(updated);
+        setPreflight(updated.preflight_checklist ?? null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to update mission status';
         setStatusError(message);
@@ -88,7 +118,47 @@ export default function MissionTelemetryPage() {
         setStatusLoading(false);
       }
     },
-    [missionId]
+    [missionId, setPreflight]
+  );
+
+  const handlePreflightToggle = useCallback(
+    async (itemId: string, nextState: boolean) => {
+      if (!missionId) return;
+      setPreflightActionError(null);
+      setPreflightUpdatingId(itemId);
+      try {
+        await updatePreflight({
+          items: [{ preflight_item_id: itemId, is_completed: nextState }],
+        });
+        await refreshMission();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update checklist item';
+        setPreflightActionError(message);
+      } finally {
+        setPreflightUpdatingId(null);
+      }
+    },
+    [missionId, updatePreflight, refreshMission]
+  );
+
+  const handlePreflightNoteUpdate = useCallback(
+    async (itemId: string, note: string) => {
+      if (!missionId) return;
+      setPreflightActionError(null);
+      setPreflightUpdatingId(itemId);
+      try {
+        await updatePreflight({
+          items: [{ preflight_item_id: itemId, note }],
+        });
+        await refreshMission();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update checklist note';
+        setPreflightActionError(message);
+      } finally {
+        setPreflightUpdatingId(null);
+      }
+    },
+    [missionId, updatePreflight, refreshMission]
   );
 
   const {
@@ -129,6 +199,46 @@ export default function MissionTelemetryPage() {
   );
   const droneLabel = mission?.drone_name ?? mission?.drone_id ?? '—';
   const pilotLabel = mission?.pilot_name ?? 'Unassigned';
+  const preflightSource = preflight ?? mission?.preflight_checklist ?? null;
+  const preflightSummarySections = useMemo(() => {
+    const items = preflightSource?.items ?? [];
+    if (!items.length) {
+      return [] as Array<{ title: string; total: number; completed: number }>;
+    }
+    const map = new Map<string, { total: number; completed: number }>();
+    items.forEach((item) => {
+      const key = item.section_title ?? 'Checklist';
+      const entry = map.get(key) ?? { total: 0, completed: 0 };
+      entry.total += 1;
+      if (item.is_completed) {
+        entry.completed += 1;
+      }
+      map.set(key, entry);
+    });
+    return Array.from(map.entries()).map(([title, value]) => ({
+      title,
+      total: value.total,
+      completed: value.completed,
+    }));
+  }, [preflightSource]);
+
+  const canEditPreflight = useMemo(() => {
+    if (!mission || !user) {
+      return false;
+    }
+    const status = mission.status ?? 'DRAFT';
+    if (status !== 'APPROVED' && status !== 'READY_FOR_FLIGHT') {
+      return false;
+    }
+    if (isAdmin) {
+      return true;
+    }
+    const requesterId = user.id;
+    return (
+      mission.created_by_user_id === requesterId ||
+      mission.assigned_pilot_id === requesterId
+    );
+  }, [mission, user, isAdmin]);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -231,20 +341,23 @@ export default function MissionTelemetryPage() {
               <p>{mission.notes || 'No notes provided'}</p>
             </div>
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Required checklists</p>
-              {mission.required_checklists?.length ? (
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Preflight sections</p>
+              {preflightSummarySections.length ? (
                 <ul className="space-y-1 text-sm text-muted-foreground">
-                  {mission.required_checklists.map((item) => (
-                    <li key={item.checklist_id} className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-2">
-                      <span className="font-medium text-foreground">{item.title}</span>
+                  {preflightSummarySections.map((section) => (
+                    <li
+                      key={section.title}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-card/60 px-3 py-2"
+                    >
+                      <span className="font-medium text-foreground">{section.title}</span>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[11px] uppercase tracking-wide">
-                        {String(item.type).replace(/_/g, ' ')}
+                        {section.completed} / {section.total} done
                       </span>
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="text-sm text-muted-foreground">No checklist attached</p>
+                <p className="text-sm text-muted-foreground">No preflight items configured</p>
               )}
             </div>
             <div className="space-y-2">
@@ -267,6 +380,20 @@ export default function MissionTelemetryPage() {
           </CardContent>
         </Card>
       )}
+
+      <MissionPreflightPanel
+        key={(preflightSource?.preflight_id ?? 'preflight-panel')}
+        missionName={mission?.mission_name}
+        preflight={preflightSource}
+        status={preflightSource?.status}
+  loading={preflightLoading}
+        error={preflightActionError ?? preflightError}
+        canEdit={canEditPreflight}
+        onRefresh={() => fetchPreflight().catch(() => null)}
+        onToggleItem={handlePreflightToggle}
+        onUpdateNote={handlePreflightNoteUpdate}
+        updatingItemId={preflightUpdatingId}
+      />
 
       {mission?.waypoints?.length ? (
         <Card>

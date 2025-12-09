@@ -15,6 +15,7 @@ const STATUS_OPTIONS: MissionStatus[] = [
   "DRAFT",
   "PENDING_APPROVAL",
   "APPROVED",
+  "READY_FOR_FLIGHT",
   "REJECTED",
   "IN_PROGRESS",
   "COMPLETED",
@@ -70,6 +71,8 @@ export function MissionForm({ drones, checklists, geofences, mode, initialData, 
   const [selectedChecklistIds, setSelectedChecklistIds] = useState<string[]>(
     initialData?.checklist_ids?.length
       ? [...initialData.checklist_ids]
+      : initialData?.preflight_checklist?.template_checklist_ids?.length
+        ? [...initialData.preflight_checklist.template_checklist_ids]
       : initialData?.required_checklists?.length
         ? initialData.required_checklists.map((item) => item.checklist_id)
         : []

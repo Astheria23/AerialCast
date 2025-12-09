@@ -3,6 +3,8 @@ import {
   CreateMissionPayload,
   Mission,
   MissionStatusAction,
+  MissionPreflightChecklist,
+  MissionPreflightUpdatePayload,
   UpdateMissionPayload,
 } from '@/types/missions.types';
 
@@ -36,6 +38,24 @@ export const missionsService = {
   changeStatus: async (missionId: string, action: MissionStatusAction) => {
     const response = await api.post<Mission>(
       `${MISSIONS_ENDPOINT}/${missionId}/status/${action}`
+    );
+    return response.data;
+  },
+
+  getMissionPreflight: async (missionId: string) => {
+    const response = await api.get<MissionPreflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/preflight`
+    );
+    return response.data;
+  },
+
+  updateMissionPreflight: async (
+    missionId: string,
+    payload: MissionPreflightUpdatePayload
+  ) => {
+    const response = await api.put<MissionPreflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/preflight`,
+      payload
     );
     return response.data;
   },

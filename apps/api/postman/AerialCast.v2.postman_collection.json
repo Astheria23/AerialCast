@@ -472,6 +472,54 @@
               "raw": "{\n  \"checklist_ids\": [\n    \"{{checklist_id_pre}}\"\n  ]\n}"
             }
           }
+        },
+        {
+          "name": "Get Mission Preflight Checklist",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/missions/{{mission_id}}/preflight",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "missions", "{{mission_id}}", "preflight"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json();",
+                  "  if (body && body.preflight_id) {",
+                  "    pm.environment.set('mission_preflight_id', body.preflight_id);",
+                  "  }",
+                  "  if (body && Array.isArray(body.items) && body.items.length > 0) {",
+                  "    pm.environment.set('mission_preflight_item_id', body.items[0].preflight_item_id || '');",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Mission Preflight Checklist",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/missions/{{mission_id}}/preflight",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "missions", "{{mission_id}}", "preflight"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"preflight_item_id\": \"{{mission_preflight_item_id}}\",\n      \"is_completed\": true,\n      \"note\": \"Checklist OK\"\n    }\n  ]\n}"
+            }
+          }
         }
       ]
     },
