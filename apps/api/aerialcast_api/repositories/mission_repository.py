@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-from typing import Iterable, Optional, Sequence
+from typing import Optional, Sequence
 
 from sqlalchemy import select
 
-from ..models.associations import mission_checklists
 from ..models.enums import MissionStatus
-from ..models.master import Checklist, Drone
-from ..models.planning import Mission
+from ..models.master import Drone
+from ..models.planning import Mission, MissionPreflightChecklist
 from .base import Repository
 
 
@@ -45,22 +44,14 @@ class MissionRepository(Repository[Mission]):
         return cls.session().execute(stmt).scalar_one_or_none()
 
     @classmethod
-    def get_checklists_by_ids(cls, checklist_ids) -> Iterable[Checklist]:
-        if not checklist_ids:
-            return []
-        stmt = select(Checklist).filter(Checklist.checklist_id.in_(checklist_ids))
-        return cls.session().execute(stmt).scalars().all()
-
-    @classmethod
     def drone_exists(cls, drone_id) -> bool:
         stmt = select(Drone.drone_id).filter(Drone.drone_id == drone_id)
         return cls.session().execute(stmt).scalar_one_or_none() is not None
 
     @classmethod
-    def clear_checklists(cls, mission: Mission) -> None:
-        cls.session().execute(
-            mission_checklists.delete().where(mission_checklists.c.mission_id == mission.mission_id)
-        )
+    def get_preflight(cls, mission_id) -> Optional[MissionPreflightChecklist]:
+        stmt = select(MissionPreflightChecklist).filter_by(mission_id=mission_id)
+        return cls.session().execute(stmt).scalar_one_or_none()
 
 
 __all__ = ["MissionRepository"]

@@ -146,9 +146,6 @@ class Checklist(db.Model):
     items: Mapped[List["ChecklistItem"]] = relationship(
         back_populates="checklist", cascade="all, delete-orphan"
     )
-    missions: Mapped[List["Mission"]] = relationship(
-        secondary="mission_checklists", back_populates="required_checklists"
-    )
 
 
 class ChecklistItem(db.Model):

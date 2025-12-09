@@ -29,10 +29,17 @@ class MissionStatus(enum.Enum):
     DRAFT = "DRAFT"
     PENDING_APPROVAL = "PENDING_APPROVAL"
     APPROVED = "APPROVED"
+    READY_FOR_FLIGHT = "READY_FOR_FLIGHT"
     REJECTED = "REJECTED"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
     CANCELED = "CANCELED"
+
+
+class PreflightStatus(enum.Enum):
+    NOT_STARTED = "NOT_STARTED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
 
 
 class SessionStatus(enum.Enum):
@@ -54,6 +61,7 @@ __all__ = [
     "GeofenceType",
     "ChecklistType",
     "MissionStatus",
+    "PreflightStatus",
     "SessionStatus",
     "AlertType",
 ]
