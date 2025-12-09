@@ -91,6 +91,7 @@ class DroneSpecsSchema(Schema):
     max_flight_time_min = fields.Integer()
     additional_info = fields.String()
     image_url = fields.String()
+    image_base64 = fields.String(load_only=True)
 
 
 class MissionUpdateSchema(Schema):

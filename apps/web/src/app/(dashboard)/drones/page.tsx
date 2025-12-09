@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { Plus, Loader2 } from "lucide-react"
 
 import { DroneCard } from "@/components/drones/drone-card"
+import { DroneUpsertDialog } from "@/components/drones/drone-upsert-dialog"
 import { Breadcrumbs } from "@/components/layout/breadcrumbs"
 import { Button } from "@/components/ui/button"
 import { ErrorDialog } from "@/components/ui/error-dialog"
@@ -11,13 +12,25 @@ import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/hooks/auth.hooks"
 import { useDrones } from "@/hooks/drones.hooks"
 import { getFriendlyErrorMessage } from "@/lib/errors"
-import type { Drone } from "@/types/drones.types"
+import type { Drone, DroneSpecsInput } from "@/types/drones.types"
 
 export default function DronesPage() {
-  const { drones, loading, error, clearError, fetchDrones, deleteDrone } = useDrones()
+  const {
+    drones,
+    loading,
+    error,
+    clearError,
+    fetchDrones,
+    deleteDrone,
+    createDrone,
+    updateDrone,
+  } = useDrones()
   const { isAdmin } = useAuth()
   const { toast } = useToast()
   const [transientError, setTransientError] = useState<string | null>(null)
+  const [isDialogOpen, setDialogOpen] = useState(false)
+  const [editingDrone, setEditingDrone] = useState<Drone | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   useEffect(() => {
     fetchDrones().catch(() => null)
@@ -43,9 +56,67 @@ export default function DronesPage() {
     }
   }
 
-  const handleViewDetail = (drone: Drone) => {
-    // You can add a modal or navigate to detail page
-    console.log("View detail for drone:", drone)
+  const handleOpenCreate = () => {
+    setEditingDrone(null)
+    setDialogOpen(true)
+  }
+
+  const handleOpenEdit = (drone: Drone) => {
+    setEditingDrone(drone)
+    setDialogOpen(true)
+  }
+
+  const handleDialogClose = () => {
+    setDialogOpen(false)
+    setEditingDrone(null)
+  }
+
+  const handleUpsert = async (payload: {
+    drone_id?: string
+    name: string
+    model: string
+    lora_id: string
+    specs?: DroneSpecsInput
+  }) => {
+    if (!isAdmin) return
+    setIsSubmitting(true)
+    try {
+      if (payload.drone_id) {
+        await updateDrone(payload.drone_id, {
+          name: payload.name,
+          model: payload.model,
+          lora_id: payload.lora_id,
+          specs: payload.specs,
+        })
+      } else {
+        await createDrone({
+          name: payload.name,
+          model: payload.model,
+          lora_id: payload.lora_id,
+          specs: payload.specs,
+        })
+      }
+      toast({
+        title: payload.drone_id ? "Drone updated" : "Drone created",
+        description: payload.drone_id
+          ? "Changes were saved successfully."
+          : "The aircraft has been added to your fleet.",
+      })
+      handleDialogClose()
+    } catch (err) {
+      const message = getFriendlyErrorMessage(
+        err,
+        payload.drone_id ? "Failed to update drone" : "Failed to create drone",
+      )
+      setTransientError(message)
+      toast({
+        variant: "destructive",
+        title: payload.drone_id ? "Unable to update drone" : "Unable to create drone",
+        description: message,
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const aggregatedError = transientError ?? error ?? null
@@ -69,7 +140,7 @@ export default function DronesPage() {
           </div>
         </div>
         {isAdmin && (
-          <Button className="gap-2">
+          <Button className="gap-2" onClick={handleOpenCreate}>
             <Plus className="w-4 h-4" />
             Add Drone
           </Button>
@@ -103,7 +174,7 @@ export default function DronesPage() {
           <div className="text-center">
             <p className="text-muted-foreground mb-4">No drones found</p>
             {isAdmin && (
-              <Button className="gap-2">
+              <Button className="gap-2" onClick={handleOpenCreate}>
                 <Plus className="w-4 h-4" />
                 Add your first drone
               </Button>
@@ -119,12 +190,22 @@ export default function DronesPage() {
             <DroneCard
               key={drone.drone_id}
               drone={drone}
-              onEdit={isAdmin ? () => console.log("Edit drone:", drone) : undefined}
+              onEdit={isAdmin ? () => handleOpenEdit(drone) : undefined}
               onDelete={isAdmin ? handleDelete : undefined}
-              onViewDetail={handleViewDetail}
+              onViewDetail={() => console.log("View detail for drone:", drone)}
             />
           ))}
         </div>
+      )}
+
+      {isAdmin && (
+        <DroneUpsertDialog
+          open={isDialogOpen}
+          onClose={handleDialogClose}
+          onSubmit={handleUpsert}
+          isSubmitting={isSubmitting}
+          initialData={editingDrone}
+        />
       )}
     </div>
   )

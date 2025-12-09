@@ -4,6 +4,8 @@ import type React from "react"
 
 import { createContext, useContext, useState, useEffect } from "react"
 
+import { authService } from "@/services/auth.service"
+
 type UserRole = "pilot" | "admin"
 
 interface SidebarContextType {
@@ -29,6 +31,13 @@ export function SidebarProvider({ children }: { children: React.ReactNode }) {
       document.documentElement.style.removeProperty("--sidebar-width")
     }
   }, [isOpen])
+
+  useEffect(() => {
+    const user = authService.getUser()
+    if (user?.role === "admin" || user?.role === "pilot") {
+      queueMicrotask(() => setRole(user.role as UserRole))
+    }
+  }, [])
 
   const toggleSidebar = () => setIsOpen(!isOpen)
 
