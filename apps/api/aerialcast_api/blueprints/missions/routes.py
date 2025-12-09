@@ -5,12 +5,18 @@ from flask_smorest import Blueprint
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from ...schemas import (
+	MissionPostflightSchema,
+	MissionPostflightUpdateSchema,
 	MissionPreflightSchema,
 	MissionPreflightUpdateSchema,
 	MissionSchema,
 	MissionUpdateSchema,
 )
-from ...services.mission_service import MissionPreflightService, MissionService
+from ...services.mission_service import (
+	MissionPostflightService,
+	MissionPreflightService,
+	MissionService,
+)
 from ..utils import abort_with_payload
 
 
@@ -105,6 +111,27 @@ class MissionPreflight(MethodView):
 	def put(self, payload, mission_id):
 		user_id = get_jwt_identity()
 		result, status = MissionPreflightService.update_preflight(mission_id, payload, user_id)
+		if status != 200:
+			abort_with_payload(status, result)
+		return result
+
+
+@blp.route("/<uuid:mission_id>/postflight", strict_slashes=False)
+class MissionPostflight(MethodView):
+	@blp.doc(security=[{"BearerAuth": []}])
+	@jwt_required()
+	@blp.response(200, MissionPostflightSchema)
+	def get(self, mission_id):
+		user_id = get_jwt_identity()
+		return MissionPostflightService.get_postflight(mission_id, user_id)
+
+	@blp.doc(security=[{"BearerAuth": []}])
+	@jwt_required()
+	@blp.arguments(MissionPostflightUpdateSchema)
+	@blp.response(200, MissionPostflightSchema)
+	def put(self, payload, mission_id):
+		user_id = get_jwt_identity()
+		result, status = MissionPostflightService.update_postflight(mission_id, payload, user_id)
 		if status != 200:
 			abort_with_payload(status, result)
 		return result

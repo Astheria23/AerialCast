@@ -49,6 +49,42 @@ export interface MissionPreflightUpdatePayload {
   items: MissionPreflightUpdateItem[];
 }
 
+export interface MissionPostflightItem {
+  postflight_item_id: string;
+  postflight_id?: string;
+  source_checklist_id?: string | null;
+  source_checklist_item_id?: string | null;
+  section_title?: string | null;
+  section_order?: number | null;
+  item_text: string;
+  order?: number | null;
+  is_completed: boolean;
+  note?: string | null;
+  completed_by_user_id?: string | null;
+  completed_by_name?: string | null;
+  completed_at?: string | null;
+}
+
+export interface MissionPostflightChecklist {
+  postflight_id: string;
+  mission_id: string;
+  status: PreflightStatus;
+  created_at?: string;
+  completed_at?: string | null;
+  template_checklist_ids?: string[];
+  items: MissionPostflightItem[];
+}
+
+export interface MissionPostflightUpdateItem {
+  postflight_item_id: string;
+  is_completed?: boolean;
+  note?: string | null;
+}
+
+export interface MissionPostflightUpdatePayload {
+  items: MissionPostflightUpdateItem[];
+}
+
 export interface MissionChecklistRef {
   checklist_id: string;
   title: string;
@@ -94,6 +130,7 @@ export interface Mission {
   assigned_pilot_id?: string | null;
   assigned_pilot_name?: string | null;
   preflight_checklist?: MissionPreflightChecklist | null;
+  postflight_checklist?: MissionPostflightChecklist | null;
 }
 
 export interface MissionFormValues {

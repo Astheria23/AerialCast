@@ -17,6 +17,8 @@ from ..models.planning import (
     Mission,
     MissionPreflightChecklist,
     MissionPreflightChecklistItem,
+    MissionPostflightChecklist,
+    MissionPostflightChecklistItem,
     MissionWaypoint,
 )
 from ..repositories import (
@@ -63,32 +65,44 @@ class MissionService:
     @classmethod
     def _resolve_checklists(cls, checklist_ids):
         if checklist_ids is not None and not isinstance(checklist_ids, list):
-            return [], {"error": "checklist_ids harus berupa list UUID"}, 400
+            return {}, {"error": "checklist_ids harus berupa list UUID"}, 400
         checklist_ids = checklist_ids or []
         if len(checklist_ids) != len(set(checklist_ids)):
-            return [], {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
+            return {}, {"error": "Duplikat checklist_ids tidak diperbolehkan"}, 400
         if not checklist_ids:
-            return [], None, None
+            return {"preflight": [], "postflight": []}, None, None
 
         found = list(cls.checklist_repository.find_by_ids(checklist_ids))
         found_ids = {checklist.checklist_id for checklist in found}
         missing = [str(cid) for cid in checklist_ids if cid not in found_ids]
         if missing:
-            return [], {
+            return {}, {
                 "error": "Checklist tidak ditemukan",
                 "missing_ids": missing,
             }, 400
-        invalid = [
-            str(checklist.checklist_id)
-            for checklist in found
-            if checklist.type.name != "PRE_FLIGHT"
-        ]
+
+        ordered: dict[str, list] = {"preflight": [], "postflight": []}
+        invalid: list[str] = []
+        lookup = {checklist.checklist_id: checklist for checklist in found}
+        for cid in checklist_ids:
+            checklist = lookup.get(cid)
+            if not checklist:
+                continue
+            checklist_type = getattr(checklist.type, "name", None)
+            if checklist_type == "PRE_FLIGHT":
+                ordered["preflight"].append(checklist)
+            elif checklist_type == "POST_FLIGHT":
+                ordered["postflight"].append(checklist)
+            else:
+                invalid.append(str(checklist.checklist_id))
+
         if invalid:
-            return [], {
-                "error": "Checklist harus bertipe PRE_FLIGHT",
+            return {}, {
+                "error": "Checklist harus bertipe PRE_FLIGHT atau POST_FLIGHT",
                 "invalid_ids": invalid,
             }, 400
-        return found, None, None
+
+        return ordered, None, None
 
     @classmethod
     def _resolve_geofences(cls, geofence_ids):
@@ -182,6 +196,64 @@ class MissionService:
                 mission.ready_for_flight_at = None
 
     @classmethod
+    def _ensure_postflight(cls, mission: Mission) -> MissionPostflightChecklist:
+        postflight = mission.postflight_checklist
+        if postflight is None:
+            postflight = MissionPostflightChecklist()
+            mission.postflight_checklist = postflight
+        return postflight
+
+    @classmethod
+    def _sync_postflight_from_templates(cls, mission: Mission, templates: Iterable) -> None:
+        materialized = list(templates)
+        postflight = cls._ensure_postflight(mission)
+        postflight.items.clear()
+        postflight.status = PreflightStatus.NOT_STARTED
+        postflight.completed_at = None
+        for section_order, checklist in enumerate(materialized):
+            checklist_items = sorted(
+                getattr(checklist, "items", []), key=lambda item: item.order or 0
+            )
+            for item in checklist_items:
+                postflight_item = MissionPostflightChecklistItem()
+                postflight_item.source_checklist_id = getattr(
+                    checklist, "checklist_id", None
+                )
+                postflight_item.source_checklist_item_id = getattr(item, "item_id", None)
+                postflight_item.section_title = getattr(checklist, "title", None)
+                postflight_item.section_order = section_order
+                postflight_item.item_text = getattr(item, "item_text", "")
+                postflight_item.order = item.order
+                postflight.items.append(postflight_item)
+        cls._refresh_postflight_auto_state(mission)
+
+    @staticmethod
+    def _refresh_postflight_auto_state(mission: Mission) -> None:
+        postflight = mission.postflight_checklist
+        if not postflight:
+            return
+        if not postflight.items:
+            postflight.status = PreflightStatus.COMPLETED
+            if not postflight.completed_at:
+                postflight.completed_at = datetime.utcnow()
+            return
+
+        completed_count = sum(1 for item in postflight.items if item.is_completed)
+        total_items = len(postflight.items)
+        if completed_count == 0:
+            postflight.status = PreflightStatus.NOT_STARTED
+            postflight.completed_at = None
+            return
+
+        if completed_count == total_items:
+            postflight.status = PreflightStatus.COMPLETED
+            if not postflight.completed_at:
+                postflight.completed_at = datetime.utcnow()
+        else:
+            postflight.status = PreflightStatus.IN_PROGRESS
+            postflight.completed_at = None
+
+    @classmethod
     def create_mission(cls, data: dict, user_id):
         creator = cls.user_repository.get(user_id)
         if not creator:
@@ -229,7 +301,8 @@ class MissionService:
         resolved_checklists, error_payload, error_status = cls._resolve_checklists(checklist_ids)
         if error_payload:
             return error_payload, error_status
-        cls._sync_preflight_from_templates(new_mission, resolved_checklists)
+        cls._sync_preflight_from_templates(new_mission, resolved_checklists.get("preflight", []))
+        cls._sync_postflight_from_templates(new_mission, resolved_checklists.get("postflight", []))
 
         geofence_ids = data.get("geofence_ids", [])
         resolved_geofences, geo_error_payload, geo_error_status = cls._resolve_geofences(geofence_ids)
@@ -314,7 +387,8 @@ class MissionService:
             resolved_checklists, error_payload, error_status = cls._resolve_checklists(checklist_ids)
             if error_payload:
                 return error_payload, error_status
-            cls._sync_preflight_from_templates(mission, resolved_checklists)
+            cls._sync_preflight_from_templates(mission, resolved_checklists.get("preflight", []))
+            cls._sync_postflight_from_templates(mission, resolved_checklists.get("postflight", []))
             preflight = mission.preflight_checklist
             if preflight and preflight.items:
                 preflight.status = PreflightStatus.NOT_STARTED
@@ -433,12 +507,15 @@ class MissionService:
                 }, 400
             mission.status = MissionStatus.IN_PROGRESS
             drone.status = DroneStatus.FLYING
+            cls._ensure_postflight(mission)
         elif action == "complete":
             if current != MissionStatus.IN_PROGRESS:
                 return {
                     "error": "Mission must be in progress before it can be completed",
                 }, 400
             mission.status = MissionStatus.COMPLETED
+            cls._ensure_postflight(mission)
+            cls._refresh_postflight_auto_state(mission)
         elif action == "cancel":
             if current in {MissionStatus.COMPLETED, MissionStatus.CANCELED}:
                 return {
@@ -595,4 +672,119 @@ class MissionPreflightService:
             return {"error": str(exc)}, 500
 
 
-__all__ = ["MissionService", "MissionPreflightService"]
+class MissionPostflightService:
+    mission_repository = MissionRepository
+    user_repository = UserRepository
+
+    @staticmethod
+    def _can_view(mission: Mission, user) -> bool:
+        return MissionPreflightService._can_view(mission, user)
+
+    @classmethod
+    def get_postflight(cls, mission_id, user_id):
+        mission = MissionService._get_mission_or_404(mission_id)
+        user = cls.user_repository.get(user_id)
+        if not user:
+            abort(404, message="User not found")
+        if not cls._can_view(mission, user):
+            abort(403, message="Anda tidak memiliki akses ke mission ini")
+        return MissionService._ensure_postflight(mission)
+
+    @classmethod
+    def update_postflight(cls, mission_id, payload: dict, user_id):
+        mission = MissionService._get_mission_or_404(mission_id)
+        user = cls.user_repository.get(user_id)
+        if not user:
+            return {"error": "User not found"}, 404
+        if not cls._can_view(mission, user):
+            return {
+                "error": "Hanya pilot yang ditugaskan atau admin yang dapat memperbarui postflight",
+            }, 403
+
+        if mission.status in {
+            MissionStatus.REJECTED,
+            MissionStatus.CANCELED,
+            MissionStatus.DRAFT,
+            MissionStatus.PENDING_APPROVAL,
+            MissionStatus.APPROVED,
+            MissionStatus.READY_FOR_FLIGHT,
+        }:
+            return {
+                "error": "Postflight checklist hanya dapat diperbarui setelah misi dimulai",
+            }, 400
+
+        if mission.status not in {MissionStatus.IN_PROGRESS, MissionStatus.COMPLETED}:
+            return {
+                "error": "Postflight checklist hanya dapat diperbarui saat atau setelah misi berlangsung",
+            }, 400
+
+        postflight = MissionService._ensure_postflight(mission)
+
+        items_payload = payload.get("items", [])
+        if items_payload is not None and not isinstance(items_payload, list):
+            return {"error": "items harus berupa list"}, 400
+
+        item_map = {
+            str(item.postflight_item_id): item
+            for item in getattr(postflight, "items", [])
+        }
+        missing_ids = []
+        seen_updates = set()
+        modified = False
+        now = datetime.utcnow()
+
+        for entry in items_payload or []:
+            item_id = entry.get("postflight_item_id") or entry.get("preflight_item_id")
+            if not item_id:
+                return {"error": "Setiap item harus memiliki postflight_item_id"}, 400
+            key = str(item_id)
+            if key in seen_updates:
+                return {"error": "Duplikat postflight_item_id tidak diperbolehkan"}, 400
+            seen_updates.add(key)
+            item = item_map.get(key)
+            if not item:
+                missing_ids.append(key)
+                continue
+
+            if "note" in entry and entry["note"] != item.note:
+                item.note = entry.get("note")
+                modified = True
+
+            if "is_completed" in entry:
+                desired_state = bool(entry.get("is_completed"))
+                if desired_state and not item.is_completed:
+                    item.is_completed = True
+                    item.completed_at = now
+                    item.completed_by_user_id = user.user_id
+                    item.completed_by = user
+                    modified = True
+                elif not desired_state and item.is_completed:
+                    item.is_completed = False
+                    item.completed_at = None
+                    item.completed_by_user_id = None
+                    item.completed_by = None
+                    modified = True
+
+        if missing_ids:
+            return {
+                "error": "Beberapa item postflight tidak ditemukan",
+                "missing_ids": missing_ids,
+            }, 404
+
+        previous_status = postflight.status
+        MissionService._refresh_postflight_auto_state(mission)
+        if postflight.status != previous_status:
+            modified = True
+
+        if not modified:
+            return postflight, 200
+
+        try:
+            cls.mission_repository.commit()
+            return postflight, 200
+        except Exception as exc:  # pragma: no cover - defensive fallback
+            cls.mission_repository.rollback()
+            return {"error": str(exc)}, 500
+
+
+__all__ = ["MissionService", "MissionPreflightService", "MissionPostflightService"]

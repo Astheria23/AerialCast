@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
 
 import { MissionPreflightPanel } from '@/components/missions/mission-preflight-panel';
+import { MissionPostflightPanel } from '@/components/missions/mission-postflight-panel';
 import { TelemetryEventFeed } from '@/components/telemetry/telemetry-event-feed';
 import { TelemetryMap } from '@/components/telemetry/telemetry-map';
 import { TelemetryStatusIndicator } from '@/components/telemetry/telemetry-status-indicator';
@@ -15,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/auth.hooks';
 import { useMissionPreflight } from '@/hooks/mission-preflight.hooks';
+import { useMissionPostflight } from '@/hooks/mission-postflight.hooks';
 import { useTelemetry } from '@/hooks/telemetry.hooks';
 import { missionsService } from '@/services/missions.service';
 import type { Mission, MissionStatusAction } from '@/types/missions.types';
@@ -49,6 +51,16 @@ export default function MissionTelemetryPage() {
   } = useMissionPreflight({ missionId });
   const [preflightUpdatingId, setPreflightUpdatingId] = useState<string | null>(null);
   const [preflightActionError, setPreflightActionError] = useState<string | null>(null);
+  const {
+    postflight,
+    loading: postflightLoading,
+    error: postflightError,
+    fetchPostflight,
+    updatePostflight,
+    setPostflight,
+  } = useMissionPostflight({ missionId });
+  const [postflightUpdatingId, setPostflightUpdatingId] = useState<string | null>(null);
+  const [postflightActionError, setPostflightActionError] = useState<string | null>(null);
   const isMissionCompleted = mission?.status === 'COMPLETED';
 
   const refreshMission = useCallback(async () => {
@@ -59,6 +71,7 @@ export default function MissionTelemetryPage() {
       const data = await missionsService.getMissionById(missionId);
       setMission(data);
       setPreflight(data.preflight_checklist ?? null);
+    setPostflight(data.postflight_checklist ?? null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load mission';
       setError(message);
@@ -66,7 +79,7 @@ export default function MissionTelemetryPage() {
     } finally {
       setLoading(false);
     }
-  }, [missionId, setPreflight]);
+  }, [missionId, setPreflight, setPostflight]);
 
   useEffect(() => {
     if (!missionId) return;
@@ -82,8 +95,14 @@ export default function MissionTelemetryPage() {
       } catch {
         // ignore, hook already exposes error state
       }
+      try {
+        await fetchPostflight();
+        setPostflightActionError(null);
+      } catch {
+        // ignore, hook already exposes error state
+      }
     })();
-  }, [missionId, refreshMission, fetchPreflight, setPreflightActionError]);
+  }, [missionId, refreshMission, fetchPreflight, fetchPostflight, setPreflightActionError, setPostflightActionError]);
 
   const canStreamTelemetry = useMemo(() => {
     const status = mission?.status ?? 'DRAFT';
@@ -111,6 +130,7 @@ export default function MissionTelemetryPage() {
         const updated = await missionsService.changeStatus(missionId, action);
         setMission(updated);
         setPreflight(updated.preflight_checklist ?? null);
+        setPostflight(updated.postflight_checklist ?? null);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to update mission status';
         setStatusError(message);
@@ -118,7 +138,7 @@ export default function MissionTelemetryPage() {
         setStatusLoading(false);
       }
     },
-    [missionId, setPreflight]
+  [missionId, setPreflight, setPostflight]
   );
 
   const handlePreflightToggle = useCallback(
@@ -161,6 +181,46 @@ export default function MissionTelemetryPage() {
     [missionId, updatePreflight, refreshMission]
   );
 
+  const handlePostflightToggle = useCallback(
+    async (itemId: string, nextState: boolean) => {
+      if (!missionId) return;
+      setPostflightActionError(null);
+      setPostflightUpdatingId(itemId);
+      try {
+        await updatePostflight({
+          items: [{ postflight_item_id: itemId, is_completed: nextState }],
+        });
+        await refreshMission();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update post-flight item';
+        setPostflightActionError(message);
+      } finally {
+        setPostflightUpdatingId(null);
+      }
+    },
+    [missionId, updatePostflight, refreshMission]
+  );
+
+  const handlePostflightNoteUpdate = useCallback(
+    async (itemId: string, note: string) => {
+      if (!missionId) return;
+      setPostflightActionError(null);
+      setPostflightUpdatingId(itemId);
+      try {
+        await updatePostflight({
+          items: [{ postflight_item_id: itemId, note }],
+        });
+        await refreshMission();
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to update post-flight note';
+        setPostflightActionError(message);
+      } finally {
+        setPostflightUpdatingId(null);
+      }
+    },
+    [missionId, updatePostflight, refreshMission]
+  );
+
   const {
     points,
     latestPoint,
@@ -200,6 +260,7 @@ export default function MissionTelemetryPage() {
   const droneLabel = mission?.drone_name ?? mission?.drone_id ?? '—';
   const pilotLabel = mission?.pilot_name ?? 'Unassigned';
   const preflightSource = preflight ?? mission?.preflight_checklist ?? null;
+  const postflightSource = postflight ?? mission?.postflight_checklist ?? null;
   const preflightSummarySections = useMemo(() => {
     const items = preflightSource?.items ?? [];
     if (!items.length) {
@@ -227,7 +288,8 @@ export default function MissionTelemetryPage() {
       return false;
     }
     const status = mission.status ?? 'DRAFT';
-    if (status !== 'APPROVED' && status !== 'READY_FOR_FLIGHT') {
+    const editableStatuses = new Set(['PENDING_APPROVAL', 'APPROVED', 'READY_FOR_FLIGHT']);
+    if (!editableStatuses.has(status)) {
       return false;
     }
     if (isAdmin) {
@@ -239,6 +301,30 @@ export default function MissionTelemetryPage() {
       mission.assigned_pilot_id === requesterId
     );
   }, [mission, user, isAdmin]);
+
+  const canEditPostflight = useMemo(() => {
+    if (!mission || !user) {
+      return false;
+    }
+    const status = mission.status ?? 'DRAFT';
+    const editableStatuses = new Set(['IN_PROGRESS', 'COMPLETED']);
+    if (!editableStatuses.has(status)) {
+      return false;
+    }
+    if (isAdmin) {
+      return true;
+    }
+    const requesterId = user.id;
+    return (
+      mission.created_by_user_id === requesterId ||
+      mission.assigned_pilot_id === requesterId
+    );
+  }, [mission, user, isAdmin]);
+
+  const shouldShowPostflightPanel = Boolean(
+    mission && ['IN_PROGRESS', 'COMPLETED'].includes(mission.status ?? '')
+  );
+  const postflightCompleted = postflightSource?.status === 'COMPLETED';
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -395,6 +481,22 @@ export default function MissionTelemetryPage() {
         updatingItemId={preflightUpdatingId}
       />
 
+      {shouldShowPostflightPanel && (
+        <MissionPostflightPanel
+          key={(postflightSource?.postflight_id ?? 'postflight-panel')}
+          missionName={mission?.mission_name}
+          postflight={postflightSource}
+          status={postflightSource?.status}
+          loading={postflightLoading}
+          error={postflightActionError ?? postflightError}
+          canEdit={canEditPostflight}
+          onRefresh={() => fetchPostflight().catch(() => null)}
+          onToggleItem={handlePostflightToggle}
+          onUpdateNote={handlePostflightNoteUpdate}
+          updatingItemId={postflightUpdatingId}
+        />
+      )}
+
       {mission?.waypoints?.length ? (
         <Card>
           <CardHeader>
@@ -537,7 +639,13 @@ export default function MissionTelemetryPage() {
         </>
       )}
 
-      {mission && isMissionCompleted && (
+      {mission && isMissionCompleted && !postflightCompleted && shouldShowPostflightPanel && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Complete the post-flight checklist to unlock mission replay data.
+        </div>
+      )}
+
+      {mission && isMissionCompleted && postflightCompleted && (
         <MissionReplayPanel
           missionId={mission.mission_id}
           missionName={mission.mission_name}

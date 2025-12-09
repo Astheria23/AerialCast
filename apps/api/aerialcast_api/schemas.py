@@ -51,6 +51,42 @@ class MissionPreflightUpdateSchema(Schema):
     items = fields.List(fields.Nested(MissionPreflightItemSchema), load_default=list)
 
 
+class MissionPostflightItemSchema(Schema):
+    postflight_item_id = fields.UUID(required=True)
+    is_completed = fields.Boolean(load_default=False)
+    note = fields.String(allow_none=True)
+
+
+class MissionPostflightItemResponseSchema(Schema):
+    postflight_item_id = fields.UUID(dump_only=True)
+    postflight_id = fields.UUID(dump_only=True)
+    source_checklist_id = fields.UUID(dump_only=True, allow_none=True)
+    source_checklist_item_id = fields.UUID(dump_only=True, allow_none=True)
+    section_title = fields.String(dump_only=True, allow_none=True)
+    section_order = fields.Integer(dump_only=True, allow_none=True)
+    item_text = fields.String(dump_only=True)
+    order = fields.Integer(dump_only=True, allow_none=True)
+    is_completed = fields.Boolean(dump_only=True)
+    note = fields.String(dump_only=True, allow_none=True)
+    completed_by_user_id = fields.UUID(dump_only=True, allow_none=True)
+    completed_by_name = fields.String(dump_only=True, allow_none=True)
+    completed_at = fields.DateTime(dump_only=True, allow_none=True)
+
+
+class MissionPostflightSchema(Schema):
+    postflight_id = fields.UUID(dump_only=True)
+    mission_id = fields.UUID(dump_only=True)
+    status = fields.String(dump_only=True)
+    created_at = fields.DateTime(dump_only=True)
+    completed_at = fields.DateTime(dump_only=True)
+    template_checklist_ids = fields.List(fields.UUID(), dump_only=True)
+    items = fields.List(fields.Nested(MissionPostflightItemResponseSchema), dump_only=True)
+
+
+class MissionPostflightUpdateSchema(Schema):
+    items = fields.List(fields.Nested(MissionPostflightItemSchema), load_default=list)
+
+
 class MissionSchema(Schema):
     mission_id = fields.UUID(dump_only=True)
     mission_name = fields.String(required=True)
@@ -72,6 +108,7 @@ class MissionSchema(Schema):
     assigned_pilot_id = fields.UUID(dump_only=True)
     assigned_pilot_name = fields.String(dump_only=True)
     preflight_checklist = fields.Nested(MissionPreflightSchema, dump_only=True)
+    postflight_checklist = fields.Nested(MissionPostflightSchema, dump_only=True)
     geofence_ids = fields.List(fields.UUID(), load_default=list)
     active_geofences = fields.List(fields.Nested(lambda: GeofenceRefSchema()), dump_only=True)
 
@@ -264,6 +301,10 @@ __all__ = [
     "MissionPreflightItemResponseSchema",
     "MissionPreflightSchema",
     "MissionPreflightUpdateSchema",
+    "MissionPostflightItemSchema",
+    "MissionPostflightItemResponseSchema",
+    "MissionPostflightSchema",
+    "MissionPostflightUpdateSchema",
     "MissionSchema",
     "UserRegisterSchema",
     "UserLoginSchema",

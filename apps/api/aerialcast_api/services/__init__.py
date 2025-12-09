@@ -6,7 +6,11 @@ from .fleet_service import FleetService
 from .flight_session_service import FlightSessionService
 from .geofence_service import GeofenceService
 from .maintenance_service import MaintenanceService
-from .mission_service import MissionPreflightService, MissionService
+from .mission_service import (
+	MissionPostflightService,
+	MissionPreflightService,
+	MissionService,
+)
 from .telemetry_service import TelemetryService
 
 __all__ = [
@@ -18,5 +22,6 @@ __all__ = [
 	"MaintenanceService",
 	"MissionService",
 	"MissionPreflightService",
+	"MissionPostflightService",
 	"TelemetryService",
 ]
