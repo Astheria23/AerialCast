@@ -2,8 +2,8 @@
 
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, ClipboardCheck, ClipboardList, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AlertTriangle, ArrowLeft, ClipboardCheck, ClipboardList, Download, Loader2 } from 'lucide-react';
 
 import { MissionPreflightPanel } from '@/components/missions/mission-preflight-panel';
 import { MissionPostflightPanel } from '@/components/missions/mission-postflight-panel';
@@ -44,11 +44,14 @@ export default function MissionTelemetryPage() {
   const params = useParams<{ missionId: string }>();
   const missionId = params?.missionId ?? '';
   const { user, isAdmin, isPilot } = useAuth();
+  const mapRef = useRef<HTMLDivElement | null>(null);
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [statusLoading, setStatusLoading] = useState(false);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const {
     preflight,
     loading: preflightLoading,
@@ -154,6 +157,44 @@ export default function MissionTelemetryPage() {
     },
   [missionId, setPreflight, setPostflight]
   );
+
+  const handleExportPdf = useCallback(async () => {
+    if (!missionId) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      let mapImage: string | undefined;
+      if (mapRef.current) {
+        try {
+          const { toPng } = await import('html-to-image');
+          const pixelRatio = typeof window !== 'undefined' ? Math.min(3, window.devicePixelRatio || 2) : 2;
+          mapImage = await toPng(mapRef.current, {
+            cacheBust: true,
+            pixelRatio,
+            backgroundColor: '#ffffff',
+            quality: 1,
+          });
+        } catch (captureError) {
+          console.warn('Unable to capture map screenshot, falling back to backend rendering', captureError);
+        }
+      }
+
+      const blob = await missionsService.exportMissionPdf(missionId, mapImage);
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `mission-${missionId}.pdf`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to export mission PDF';
+      setExportError(message);
+    } finally {
+      setExporting(false);
+    }
+  }, [missionId]);
 
   const handlePreflightToggle = useCallback(
     async (itemId: string, nextState: boolean) => {
@@ -371,8 +412,23 @@ export default function MissionTelemetryPage() {
             <span className="text-xs text-muted-foreground">Session {shortSessionLabel}</span>
           )}
         </div>
-        <Button asChild variant="outline">
-          <Link href={`/missions/${missionId}/export`}>Export flight log</Link>
+        <Button
+          variant="outline"
+          className="gap-2"
+          disabled={exporting}
+          onClick={() => {
+            void handleExportPdf();
+          }}
+        >
+          {exporting ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Generating PDF...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4" /> Export flight log
+            </>
+          )}
         </Button>
       </div>
 
@@ -389,6 +445,11 @@ export default function MissionTelemetryPage() {
       {statusError && (
         <div className="flex items-center gap-3 rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4" /> {statusError}
+        </div>
+      )}
+      {exportError && (
+        <div className="flex items-center gap-3 rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <AlertTriangle className="h-4 w-4" /> {exportError}
         </div>
       )}
 
@@ -630,6 +691,7 @@ export default function MissionTelemetryPage() {
           <div className="grid gap-6 xl:grid-cols-[2fr_1fr] xl:items-stretch">
             <div className="h-full min-h-[420px]">
               <TelemetryMap
+                ref={mapRef}
                 waypoints={mission?.waypoints}
                 trail={points}
                 latestPoint={latestPoint}

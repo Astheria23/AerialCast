@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { forwardRef, useEffect, useMemo } from 'react';
 import { CircleMarker, MapContainer, Polyline, Polygon, TileLayer, Tooltip, useMap } from 'react-leaflet';
 import type { LatLngExpression, LatLngTuple } from 'leaflet';
 import L from 'leaflet';
@@ -8,12 +8,14 @@ import 'leaflet/dist/leaflet.css';
 
 import type { MissionGeofenceRef, MissionWaypoint } from '@/types/missions.types';
 import type { TelemetryPoint } from '@/types/telemetry.types';
+import { cn } from '@/lib/utils';
 
 interface TelemetryMapProps {
   waypoints?: MissionWaypoint[];
   trail: TelemetryPoint[];
   latestPoint?: TelemetryPoint;
   geofences?: MissionGeofenceRef[];
+  className?: string;
 }
 
 const DEFAULT_CENTER: LatLngExpression = [-6.2, 106.8167];
@@ -54,7 +56,10 @@ const getGeofenceStyle = (type?: string) => {
   return { color: '#0ea5e9', fillColor: '#bae6fd', fillOpacity: 0.25, weight: 2 };
 };
 
-export function TelemetryMap({ waypoints = [], trail, latestPoint, geofences = [] }: TelemetryMapProps) {
+export const TelemetryMap = forwardRef<HTMLDivElement, TelemetryMapProps>(function TelemetryMap(
+  { waypoints = [], trail, latestPoint, geofences = [], className }: TelemetryMapProps,
+  ref
+) {
   const plannedPath = useMemo(() => toPolyline(sortWaypoints(waypoints)), [waypoints]);
   const livePath = useMemo(
     () =>
@@ -102,10 +107,19 @@ export function TelemetryMap({ waypoints = [], trail, latestPoint, geofences = [
   );
 
   return (
-    <MapContainer center={center} zoom={autoFitPaths.length ? 14 : 5} scrollWheelZoom className="h-full w-full rounded-xl border">
+    <div ref={ref} className={cn('h-full w-full rounded-xl border shadow-sm', className)}>
+      <MapContainer
+        center={center}
+        zoom={autoFitPaths.length ? 14 : 5}
+        scrollWheelZoom
+        className="h-full w-full rounded-xl"
+        preferCanvas={false}
+      >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          crossOrigin="anonymous"
+          detectRetina
       />
       {autoFitPaths.length > 0 && <AutoFit paths={autoFitPaths} />}
       {geofencePolygons.map((polygon) => (
@@ -151,6 +165,7 @@ export function TelemetryMap({ waypoints = [], trail, latestPoint, geofences = [
           </Tooltip>
         </CircleMarker>
       )}
-    </MapContainer>
+      </MapContainer>
+    </div>
   );
-}
+});

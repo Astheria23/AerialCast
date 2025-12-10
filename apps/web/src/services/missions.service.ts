@@ -79,4 +79,13 @@ export const missionsService = {
     );
     return response.data;
   },
+
+  exportMissionPdf: async (missionId: string, mapImage?: string) => {
+    const response = await api.post(
+      `${MISSIONS_ENDPOINT}/${missionId}/export`,
+      mapImage ? { map_image: mapImage } : {},
+      { responseType: 'blob' }
+    );
+    return response.data as Blob;
+  },
 };
