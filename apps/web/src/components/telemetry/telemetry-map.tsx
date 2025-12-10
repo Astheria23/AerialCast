@@ -145,6 +145,8 @@ export function TelemetryMap({ waypoints = [], trail, latestPoint, geofences = [
                 {latestPoint.latitude.toFixed(4)}, {latestPoint.longitude.toFixed(4)}
               </p>
               {typeof latestPoint.altitude === 'number' && <p>Altitude {latestPoint.altitude.toFixed(1)} m</p>}
+              {typeof latestPoint.rssi === 'number' && <p>RSSI {latestPoint.rssi} dBm</p>}
+              {typeof latestPoint.snr === 'number' && <p>SNR {latestPoint.snr.toFixed(1)} dB</p>}
             </div>
           </Tooltip>
         </CircleMarker>

@@ -714,12 +714,13 @@ export default function MissionTelemetryPage() {
                     <th>Altitude</th>
                     <th>Battery</th>
                     <th>Signal</th>
+                    <th>SNR</th>
                   </tr>
                 </thead>
                 <tbody>
                   {latestPoints.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-4 text-center text-muted-foreground">
+                      <td colSpan={7} className="py-4 text-center text-muted-foreground">
                         Waiting for telemetry samples...
                       </td>
                     </tr>
@@ -729,9 +730,10 @@ export default function MissionTelemetryPage() {
                       <td className="py-2">{point.recorded_at ? new Date(point.recorded_at).toLocaleTimeString() : '—'}</td>
                       <td>{point.latitude.toFixed(4)}</td>
                       <td>{point.longitude.toFixed(4)}</td>
-                      <td>{point.altitude ? `${point.altitude.toFixed(1)} m` : '—'}</td>
-                      <td>{point.battery_voltage ? `${point.battery_voltage.toFixed(2)} V` : '—'}</td>
-                      <td>{point.rssi ? `${point.rssi} dBm` : '—'}</td>
+                      <td>{typeof point.altitude === 'number' ? `${point.altitude.toFixed(1)} m` : '—'}</td>
+                      <td>{typeof point.battery_voltage === 'number' ? `${point.battery_voltage.toFixed(2)} V` : '—'}</td>
+                      <td>{typeof point.rssi === 'number' ? `${point.rssi} dBm` : '—'}</td>
+                      <td>{typeof point.snr === 'number' ? `${point.snr.toFixed(1)} dB` : '—'}</td>
                     </tr>
                   ))}
                 </tbody>

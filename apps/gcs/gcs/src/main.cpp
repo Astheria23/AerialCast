@@ -9,6 +9,7 @@
 #include <ESPAsyncWebServer.h>
 #include <AsyncTCP.h>
 #include <ESPmDNS.h>
+#include <Preferences.h>
 
 #define SS 5
 #define RST 12
@@ -27,82 +28,56 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
+Preferences prefs; // NVS storage for persistent config
 
 // === Variabel Status Global ===
 String global_mqtt_status = "Init...";
 String global_lora_status = "Init...";
 String global_last_packet = "{\"status\":\"Initializing...\"}";
 
+// === Metrics & Runtime State ===
+volatile uint32_t stat_total_packets = 0;
+volatile uint32_t stat_json_errors = 0;
+volatile uint32_t stat_mqtt_published = 0;
+volatile uint32_t stat_mqtt_failed = 0;
+volatile uint16_t stat_ws_clients = 0;
+volatile int16_t last_rssi = 0;
+volatile float last_snr = 0.0f;
+volatile unsigned long last_packet_ms = 0;
+
+// === Runtime configuration/cache ===
+const char *mdns_hostname = "aerialcast";
+int g_mqtt_port = 1883; // updated after WiFiManager
+
+// === Persistent config helpers (ESP32 NVS) ===
+void loadConfig()
+{
+  prefs.begin("gcs", true); // read-only
+  String broker = prefs.getString("mqtt_broker", "");
+  String port = prefs.getString("mqtt_port", "1883");
+  String user = prefs.getString("mqtt_user", "");
+  String pass = prefs.getString("mqtt_pass", "");
+  prefs.end();
+  broker.toCharArray(mqtt_broker, sizeof(mqtt_broker));
+  port.toCharArray(mqtt_port_str, sizeof(mqtt_port_str));
+  user.toCharArray(mqtt_username, sizeof(mqtt_username));
+  pass.toCharArray(mqtt_password, sizeof(mqtt_password));
+}
+
+void saveConfig()
+{
+  prefs.begin("gcs", false); // read-write
+  prefs.putString("mqtt_broker", String(mqtt_broker));
+  prefs.putString("mqtt_port", String(mqtt_port_str));
+  prefs.putString("mqtt_user", String(mqtt_username));
+  prefs.putString("mqtt_pass", String(mqtt_password));
+  prefs.end();
+}
+
 // =====================================================================
-// === HTML Dashboard ===
+// === HTML Dashboard (moved to header to avoid Arduino preprocessor issues) ===
 // =====================================================================
-const char index_html[] PROGMEM = R"rawliteral(
-<!DOCTYPE HTML><html>
-<head>
-  <title>AerialCast GCS Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <style>
-    body { font-family: Arial, sans-serif; background: #121212; color: #E0E0E0; }
-    h2 { color: #BB86FC; }
-    .card { background: #1E1E1E; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.5); margin-bottom: 20px; }
-    #log { background: #000; padding: 10px; border-radius: 4px; height: 300px; overflow-y: scroll; font-family: 'Courier New', monospace; }
-    #status { background: #333; padding: 10px; border-radius: 4px; }
-    pre { margin: 0; word-wrap: break-word; white-space: pre-wrap; }
-  </style>
-</head>
-<body>
-  <h2>AerialCast GCS Dashboard</h2>
-  <div class="card">
-    <h3>Live Status</h3>
-    <div id="status">
-      <p><strong>MQTT:</strong> <span id="mqtt_status">Connecting...</span></p>
-      <p><strong>LoRa:</strong> <span id="lora_status">Listening...</span></p>
-    </div>
-  </div>
-  <div class="card">
-    <h3>Live Telemetry Log</h3>
-    <div id="log"></div>
-  </div>
-<script>
-  var gateway = `ws://${window.location.hostname}/ws`;
-  var websocket;
-  window.addEventListener('load', onLoad);
-  function initWebSocket() {
-    websocket = new WebSocket(gateway);
-    websocket.onopen    = onOpen;
-    websocket.onclose   = onClose;
-    websocket.onmessage = onMessage;
-  }
-  function onOpen(event) {
-    document.getElementById('mqtt_status').innerHTML = "Connected to GCS";
-  }
-  function onClose(event) {
-    document.getElementById('mqtt_status').innerHTML = "Disconnected from GCS";
-    setTimeout(initWebSocket, 2000);
-  }
-  function onMessage(event) {
-    var logDiv = document.getElementById('log');
-    var p = document.createElement('pre');
-    p.innerHTML = event.data;
-    logDiv.appendChild(p);
-    logDiv.scrollTop = logDiv.scrollHeight;
-    try {
-      var data = JSON.parse(event.data);
-      if (data.lora_id) {
-        document.getElementById('lora_status').innerHTML = `Received packet (ID: ${data.lora_id})`;
-      }
-      if (data.error) {
-         document.getElementById('lora_status').innerHTML = `<span style="color:red;">${data.error}</span>`;
-      }
-    } catch(e) {}
-  }
-  function onLoad(event) {
-    initWebSocket();
-  }
-</script>
-</body>
-</html>
-)rawliteral";
+#include "index_html.h"
 
 // =====================================================================
 // === WebSocket Handler ===
@@ -112,11 +87,13 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
   if (type == WS_EVT_CONNECT)
   {
     Serial.println("WebSocket client connected");
+    stat_ws_clients++;
     client->text(global_last_packet); // Kirim data terakhir ke client baru
   }
   else if (type == WS_EVT_DISCONNECT)
   {
     Serial.println("WebSocket client disconnected");
+    if (stat_ws_clients > 0) stat_ws_clients--;
   }
 }
 
@@ -230,15 +207,26 @@ void setup()
   WiFiManager wm;
   wm.setConnectTimeout(60);
 
-  WiFiManagerParameter custom_mqtt_broker("broker", "MQTT Broker Host", mqtt_broker, 64);
-  WiFiManagerParameter custom_mqtt_port("port", "MQTT Port", "1883", 6);
-  WiFiManagerParameter custom_mqtt_user("user", "MQTT Username", mqtt_username, 64);
-  WiFiManagerParameter custom_mqtt_pass("pass", "MQTT Password", mqtt_password, 64);
+  // Load stored MQTT config
+  loadConfig();
+
+  WiFiManagerParameter custom_mqtt_broker("broker", "MQTT Broker Host", strlen(mqtt_broker)?mqtt_broker:"", 64);
+  WiFiManagerParameter custom_mqtt_port("port", "MQTT Port", strlen(mqtt_port_str)?mqtt_port_str:"1883", 6);
+  WiFiManagerParameter custom_mqtt_user("user", "MQTT Username", strlen(mqtt_username)?mqtt_username:"", 64);
+  WiFiManagerParameter custom_mqtt_pass("pass", "MQTT Password", strlen(mqtt_password)?mqtt_password:"", 64);
 
   wm.addParameter(&custom_mqtt_broker);
   wm.addParameter(&custom_mqtt_port);
   wm.addParameter(&custom_mqtt_user);
   wm.addParameter(&custom_mqtt_pass);
+
+  wm.setSaveParamsCallback([&]() {
+    strcpy(mqtt_broker, custom_mqtt_broker.getValue());
+    strcpy(mqtt_port_str, custom_mqtt_port.getValue());
+    strcpy(mqtt_username, custom_mqtt_user.getValue());
+    strcpy(mqtt_password, custom_mqtt_pass.getValue());
+    saveConfig();
+  });
 
   lcd.clear();
   lcd.print("Connect to AP:");
@@ -260,8 +248,11 @@ void setup()
   strcpy(mqtt_port_str, custom_mqtt_port.getValue());
   strcpy(mqtt_username, custom_mqtt_user.getValue());
   strcpy(mqtt_password, custom_mqtt_pass.getValue());
+  saveConfig();
 
   int mqtt_port = atoi(mqtt_port_str);
+  // keep global port in sync for /status reporting
+  g_mqtt_port = mqtt_port;
 
   Serial.println("Using MQTT Config from WiFiManager:");
   Serial.println(mqtt_broker);
@@ -277,7 +268,7 @@ void setup()
   // =====================================================================
   // === mDNS Setup ===
   // =====================================================================
-  if (!MDNS.begin("aerialcast"))
+  if (!MDNS.begin(mdns_hostname))
   {
     Serial.println("Error setting up MDNS responder!");
     lcd.clear();
@@ -326,6 +317,31 @@ void setup()
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request)
             { request->send_P(200, "text/html", index_html); });
 
+  // Status endpoint
+  server.on("/status", HTTP_GET, [](AsyncWebServerRequest *request) {
+    StaticJsonDocument<768> doc;
+    doc["wifi_ssid"] = WiFi.SSID();
+    doc["ip"] = WiFi.localIP().toString();
+    doc["mdns"] = mdns_hostname;
+    doc["mqtt_status"] = global_mqtt_status;
+    doc["lora_status"] = global_lora_status;
+    doc["mqtt_broker"] = mqtt_broker;
+    doc["mqtt_port"] = g_mqtt_port;
+    doc["mqtt_topic"] = topic;
+    doc["ws_clients"] = stat_ws_clients;
+    doc["total_packets"] = stat_total_packets;
+    doc["json_errors"] = stat_json_errors;
+    doc["mqtt_published"] = stat_mqtt_published;
+    doc["mqtt_failed"] = stat_mqtt_failed;
+    doc["last_rssi"] = last_rssi;
+    doc["last_snr"] = last_snr;
+    doc["uptime_ms"] = millis();
+    long age = (last_packet_ms == 0) ? -1 : (long)(millis() - last_packet_ms);
+    doc["last_packet_age_ms"] = age;
+    String out; serializeJson(doc, out);
+    request->send(200, "application/json", out);
+  });
+
   server.begin();
   Serial.println("HTTP server started. Open IP in browser.");
 }
@@ -354,8 +370,11 @@ void loop()
 
   if (packetSize)
   {
-    String rssiString = "LoRa : " + String(LoRa.packetRssi()) + "dBm  ";
-    global_lora_status = String(LoRa.packetRssi()) + "dBm";
+    stat_total_packets++;
+    last_rssi = LoRa.packetRssi();
+    last_snr = LoRa.packetSnr();
+    String rssiString = "LoRa : " + String(last_rssi) + "dBm  ";
+    global_lora_status = String(last_rssi) + "dBm";
     lcd.setCursor(0, 1);
     lcd.print(rssiString);
 
@@ -365,7 +384,8 @@ void loop()
       receivedString += (char)LoRa.read();
     }
 
-    global_last_packet = receivedString;
+  global_last_packet = receivedString; 
+  last_packet_ms = millis();
 
     Serial.println("---");
     Serial.print("Received: '");
@@ -374,7 +394,7 @@ void loop()
     Serial.println(LoRa.packetRssi());
 
     // Parsing JSON
-    StaticJsonDocument<200> doc;
+  StaticJsonDocument<512> doc;
     DeserializationError error = deserializeJson(doc, receivedString);
 
     if (error)
@@ -382,6 +402,7 @@ void loop()
       Serial.print("JSON parse failed: ");
       Serial.println(error.c_str());
       global_lora_status = "JSON FAILED";
+      stat_json_errors++;
       global_last_packet = "{\"error\":\"JSON parse failed\"}";
       lcd.setCursor(0, 1);
       lcd.print("LoRa: JSON FAILED");
@@ -390,14 +411,24 @@ void loop()
     {
       Serial.println("JSON Parsed OK");
 
+      // Enrich payload with radio link diagnostics before publishing
+      doc["rssi"] = last_rssi;
+      doc["snr"] = last_snr;
+
+      String enrichedPacket;
+      serializeJson(doc, enrichedPacket);
+      global_last_packet = enrichedPacket;
+
       // Publish data MQTT
-      if (client.publish(topic, receivedString.c_str()))
+      if (client.publish(topic, enrichedPacket.c_str()))
       {
         Serial.println("MQTT: Packet Published!");
+        stat_mqtt_published++;
       }
       else
       {
         Serial.println("MQTT: Publish FAILED");
+        stat_mqtt_failed++;
         global_mqtt_status = "Pub FAILED";
         lcd.setCursor(0, 0);
         lcd.print("MQTT: Pub FAILED");
@@ -405,7 +436,7 @@ void loop()
     }
 
     // Broadcast WebSocket
-    ws.textAll(global_last_packet);
+  ws.textAll(global_last_packet);
     delay(500);
     global_lora_status = "Listening";
     lcd.setCursor(0, 1);

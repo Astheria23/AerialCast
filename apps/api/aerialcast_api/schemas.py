@@ -192,6 +192,8 @@ class TelemetryDataSchema(Schema):
     altitude = fields.Float()
     battery_voltage = fields.Float()
     rssi = fields.Integer()
+    snr = fields.Float()
+    speed = fields.Float()
 
 
 class FlightSessionSchema(Schema):

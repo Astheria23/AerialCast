@@ -288,7 +288,8 @@ CREATE TABLE public.telemetry_data (
     longitude double precision NOT NULL,
     altitude double precision,
     battery_voltage double precision,
-    rssi integer
+    rssi integer,
+    snr double precision
 );
 
 
@@ -594,7 +595,7 @@ c818bc11-a874-4690-8b56-cced2bb54e8b	1e0f3af2-c01d-4e71-840d-0ff6c7fdf60c	Survey
 -- Data for Name: telemetry_data; Type: TABLE DATA; Schema: public; Owner: -
 --
 
-COPY public.telemetry_data ("time", session_id, latitude, longitude, altitude, battery_voltage, rssi) FROM stdin;
+COPY public.telemetry_data ("time", session_id, latitude, longitude, altitude, battery_voltage, rssi, snr) FROM stdin;
 \.
 
 

@@ -5,6 +5,23 @@ import type { TelemetryPoint, TelemetryReplayQuery } from '@/types/telemetry.typ
 const SESSIONS_ENDPOINT = 'api/v1/sessions';
 const MAX_POINTS = 240;
 
+const EARTH_RADIUS_M = 6371000;
+
+const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
+
+const haversineDistance = (a: TelemetryPoint, b: TelemetryPoint) => {
+  const φ1 = toRadians(a.latitude);
+  const φ2 = toRadians(b.latitude);
+  const Δφ = toRadians(b.latitude - a.latitude);
+  const Δλ = toRadians(b.longitude - a.longitude);
+
+  const sinHalfΔφ = Math.sin(Δφ / 2);
+  const sinHalfΔλ = Math.sin(Δλ / 2);
+  const h = sinHalfΔφ * sinHalfΔφ + Math.cos(φ1) * Math.cos(φ2) * sinHalfΔλ * sinHalfΔλ;
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return EARTH_RADIUS_M * c;
+};
+
 type ApiTelemetryPoint = {
   telemetry_id?: string;
   latitude: number;
@@ -12,6 +29,7 @@ type ApiTelemetryPoint = {
   altitude?: number | null;
   battery_voltage?: number | null;
   rssi?: number | null;
+  snr?: number | null;
   speed?: number | null;
   heading?: number | null;
   recorded_at?: string;
@@ -28,17 +46,44 @@ type SessionListQuery = {
 type MissionSessionQuery = Omit<SessionListQuery, 'missionId'>;
 
 const normalizeTelemetryPoints = (points: ApiTelemetryPoint[]): TelemetryPoint[] => {
-  return points
-    .map((point, index) => {
-      const recorded_at = point.recorded_at ?? point.time ?? new Date().toISOString();
-      const fallbackId = `${point.session_id ?? 'session'}-${recorded_at}-${index}-${point.latitude}-${point.longitude}`;
-      return {
-        ...point,
-        telemetry_id: point.telemetry_id ?? fallbackId,
-        recorded_at,
-      } satisfies TelemetryPoint;
-    })
-    .slice(-MAX_POINTS);
+  const normalized = points.map((point, index) => {
+    const recorded_at = point.recorded_at ?? point.time ?? new Date().toISOString();
+    const fallbackId = `${point.session_id ?? 'session'}-${recorded_at}-${index}-${point.latitude}-${point.longitude}`;
+    return {
+      ...point,
+      telemetry_id: point.telemetry_id ?? fallbackId,
+      recorded_at,
+    } satisfies TelemetryPoint;
+  });
+
+  for (let i = 1; i < normalized.length; i += 1) {
+    const current = normalized[i];
+    const previous = normalized[i - 1];
+    if (typeof current.speed === 'number') {
+      continue;
+    }
+    const prevTime = previous.recorded_at ?? previous.time;
+    const currTime = current.recorded_at ?? current.time;
+    if (!prevTime || !currTime) {
+      continue;
+    }
+    const prevTs = Date.parse(prevTime);
+    const currTs = Date.parse(currTime);
+    if (!Number.isFinite(prevTs) || !Number.isFinite(currTs)) {
+      continue;
+    }
+    const deltaSeconds = (currTs - prevTs) / 1000;
+    if (deltaSeconds <= 0) {
+      continue;
+    }
+    const distance = haversineDistance(previous, current);
+    if (!Number.isFinite(distance)) {
+      continue;
+    }
+    current.speed = Number((distance / deltaSeconds).toFixed(2));
+  }
+
+  return normalized.slice(-MAX_POINTS);
 };
 
 const buildSessionQuery = (params: SessionListQuery = {}) => {

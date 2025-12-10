@@ -72,6 +72,7 @@ class TelemetryData(db.Model):
     altitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     battery_voltage: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     rssi: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    snr: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
 
     session: Mapped["FlightSession"] = relationship(back_populates="telemetry_logs")
 
@@ -84,6 +85,8 @@ class TelemetryData(db.Model):
             "altitude": self.altitude,
             "battery_voltage": self.battery_voltage,
             "rssi": self.rssi,
+            "snr": self.snr,
+            "speed": getattr(self, "speed", None),
         }
 
 
