@@ -1,23 +1,21 @@
-"""PDF export helpers for mission flight logs."""
+"""Mission PDF export helpers powered by WeasyPrint."""
 
 from __future__ import annotations
 
+import base64
 import io
+from pathlib import Path
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from itertools import cycle
-from textwrap import wrap
 from typing import Any, Iterable, Sequence
 
 import matplotlib
 
 matplotlib.use("Agg")  # noqa: E402
 import matplotlib.pyplot as plt
-from reportlab.lib.colors import HexColor
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.units import cm
-from reportlab.lib.utils import ImageReader
-from reportlab.pdfgen import canvas
+from flask import current_app, render_template
+from weasyprint import HTML
 
 from ..models.execution import FlightSession, TelemetryData
 from ..models.planning import (
@@ -38,175 +36,82 @@ class MissionExportService:
     def build_pdf(cls, mission_id, *, map_image_bytes: bytes | None = None) -> bytes:
         mission: Mission = MissionService.get_mission_by_id(mission_id)
         sessions = sorted(
-            mission.flight_sessions,
+            list(getattr(mission, "flight_sessions", []) or []),
             key=lambda session: session.start_time or datetime.min,
         )
+
         telemetry_points: list[TelemetryData] = []
         for session in sessions:
-
-
             telemetry_points.extend(
                 cls.telemetry_repository.list_for_session(session.session_id)
             )
-        telemetry_points.sort(key=lambda point: point.time)
+        telemetry_points.sort(
+            key=lambda point: point.time
+            or datetime.min.replace(tzinfo=timezone.utc)
+        )
 
         telemetry_summary = cls._summarize_telemetry(telemetry_points)
         timeline_summary = cls._mission_timeline(sessions, telemetry_points)
 
-        map_image = (
+        map_stream = (
             io.BytesIO(map_image_bytes)
             if map_image_bytes
             else cls._render_mission_map(mission)
         )
-        telemetry_chart = cls._render_signal_chart(telemetry_points)
+        chart_stream = cls._render_signal_chart(telemetry_points)
 
-        buffer = io.BytesIO()
-        pdf = canvas.Canvas(buffer, pagesize=A4)
-
-
-        width, height = A4
-        margin = 2 * cm
-
-        cls._draw_overview(
-            pdf,
-            mission,
-            telemetry_summary,
-            timeline_summary,
-            width,
-            height,
-            margin,
+        context = cls._build_template_context(
+            mission=mission,
+            telemetry_summary=telemetry_summary,
+            timeline_summary=timeline_summary,
+            map_stream=map_stream,
+            chart_stream=chart_stream,
         )
-        pdf.showPage()
 
-        cls._draw_map_page(pdf, map_image, width, height, margin)
-        pdf.showPage()
-
-
-
-        cls._draw_signal_page(pdf, telemetry_chart, width, height, margin)
-        pdf.showPage()
-
-        cls._draw_checklist_page(
-            pdf,
-            "Pre-flight Checklist",
-            mission.preflight_checklist.items if mission.preflight_checklist else [],
-            width,
-            height,
-            margin,
-        )
-        pdf.showPage()
-
-        cls._draw_checklist_page(
-            pdf,
-            "Post-flight Checklist",
-            mission.postflight_checklist.items if mission.postflight_checklist else [],
-            width,
-            height,
-            margin,
-        )
-        pdf.save()
-        buffer.seek(0)
-        return buffer.getvalue()
+        html = render_template("mission_report.html", **context)
+        base_url = str(current_app.root_path)
+        pdf_bytes = HTML(string=html, base_url=base_url).write_pdf()
+        return pdf_bytes or b""
 
     @classmethod
-    def _draw_page_header(
+    def _build_template_context(
         cls,
-        pdf: canvas.Canvas,
-        title: str,
-        width: float,
-        height: float,
-        margin: float,
-    ) -> float:
-        top = height - margin
-        header_height = 42
-        pdf.setFillColor(HexColor("#0f172a"))
-        pdf.roundRect(
-            margin,
-            top - header_height,
-            width - 2 * margin,
-            header_height,
-            10,
-            fill=1,
-            stroke=0,
-        )
-        accent_width = 28
-        pdf.setFillColor(HexColor("#38bdf8"))
-        pdf.roundRect(
-            margin,
-            top - header_height,
-            accent_width,
-            header_height,
-            10,
-            fill=1,
-            stroke=0,
-        )
-        pdf.setFillColor(HexColor("#f8fafc"))
-        pdf.setFont("Helvetica-Bold", 16)
-        pdf.drawString(margin + accent_width + 10, top - 18, "AerialCast")
-        pdf.setFont("Helvetica", 10)
-        pdf.setFillColor(HexColor("#cbd5f5"))
-        pdf.drawString(margin + accent_width + 10, top - 32, "Mission Flight Log")
-        pdf.setFillColor(HexColor("#0f172a"))
-        pdf.setFont("Helvetica-Bold", 18)
-        pdf.drawString(margin, top - header_height - 16, title)
-        pdf.setFillColorRGB(0, 0, 0)
-        return top - header_height - 32
-
-    @classmethod
-    def _draw_overview(
-        cls,
-        pdf: canvas.Canvas,
+        *,
         mission: Mission,
         telemetry_summary: dict[str, Any],
         timeline_summary: dict[str, Any] | None,
-        width: float,
-        height: float,
-        margin: float,
-    ) -> None:
-        y = cls._draw_page_header(
-            pdf,
-            f"Mission: {mission.mission_name}",
-            width,
-            height,
-            margin,
-        )
-
-        pdf.setFont("Helvetica", 12)
+        map_stream: io.BytesIO,
+        chart_stream: io.BytesIO,
+    ) -> dict[str, Any]:
         metadata = [
-            ("Mission ID", str(mission.mission_id)),
-            (
-                "Status",
-                mission.status.name
+            {"label": "Mission ID", "value": str(mission.mission_id)},
+            {
+                "label": "Status",
+                "value": getattr(mission.status, "name", None)
                 if getattr(mission.status, "name", None)
                 else str(mission.status),
-            ),
-            (
-                "Created",
-                mission.created_at.strftime("%Y-%m-%d %H:%M")
-                if mission.created_at
-                else "—",
-            ),
-            (
-                "Pilot",
-                getattr(mission.assigned_pilot, "full_name", None)
-                or getattr(mission.creator, "full_name", None)
-                or "Unknown",
-            ),
-            (
-                "Drone",
-                getattr(mission.drone, "drone_name", None) or str(mission.drone_id),
-            ),
+            },
+            {
+                "label": "Created",
+                "value": cls._format_datetime(mission.created_at),
+            },
+            {
+                "label": "Pilot",
+                "value": (
+                    getattr(mission.assigned_pilot, "full_name", None)
+                    or getattr(mission.creator, "full_name", None)
+                    or "Unknown"
+                ),
+            },
+            {
+                "label": "Drone",
+                "value": getattr(mission.drone, "drone_name", None)
+                or str(mission.drone_id),
+            },
         ]
-        for label, value in metadata:
-            pdf.drawString(margin, y, f"{label}: {value}")
-            y -= 14
 
+        timeline_rows: list[tuple[str, str]] = []
         if timeline_summary:
-            y -= 6
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(margin, y, "Flight Timeline")
-            y -= 16
-            pdf.setFont("Helvetica", 11)
             timeline_rows = [
                 (
                     f"Window start: {timeline_summary['start_display']}",
@@ -221,120 +126,212 @@ class MissionExportService:
                     f"Last contact: {timeline_summary['last_contact_display']}",
                 ),
             ]
-            y = cls._draw_two_column_rows(pdf, timeline_rows, width, margin, y)
 
-        if telemetry_summary.get("has_data"):
-            y -= 6
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(margin, y, "Telemetry Summary")
-            y -= 16
-            pdf.setFont("Helvetica", 11)
+        telemetry_cards = cls._telemetry_cards(telemetry_summary)
 
-            altitude_stats = telemetry_summary["altitude"]
-            battery_stats = telemetry_summary["battery"]
-            speed_stats = telemetry_summary["speed"]
-            signal_stats = telemetry_summary["signal"]
-            snr_stats = telemetry_summary["snr"]
-
-            altitude_range = (
-                f"{altitude_stats['min']:.0f}–{altitude_stats['max']:.0f} m"
-                if altitude_stats["min"] is not None and altitude_stats["max"] is not None
-                else "—"
-            )
-            battery_range = (
-                f"{battery_stats['min']:.2f}–{battery_stats['max']:.2f} V"
-                if battery_stats["min"] is not None and battery_stats["max"] is not None
-                else "—"
-            )
-            signal_range = (
-                f"{signal_stats['min']:.0f}–{signal_stats['max']:.0f} dBm"
-                if signal_stats["min"] is not None and signal_stats["max"] is not None
-                else "—"
-            )
-            snr_average = (
-                f"{snr_stats['avg']:.1f} dB"
-                if snr_stats["avg"] is not None
-                else "—"
-            )
-
-            telemetry_rows = [
-                (
-                    f"Distance traveled: {telemetry_summary['distance_display']}",
-                    f"Average speed: {cls._format_metric(speed_stats['avg'], 'm/s')}",
+        waypoints = [
+            {
+                "order": waypoint.order,
+                "label": cls._format_waypoint(
+                    waypoint.order,
+                    waypoint.latitude,
+                    waypoint.longitude,
+                    waypoint.altitude,
                 ),
-                (
-                    f"Top speed: {cls._format_metric(speed_stats['max'], 'm/s')}",
-                    f"Altitude range: {altitude_range}",
-                ),
-                (
-                    f"Battery range: {battery_range}",
-                    f"RSSI range: {signal_range}",
-                ),
-                (
-                    f"Last battery reading: {cls._format_metric(battery_stats['latest'], 'V', 2)}",
-                    f"Average SNR: {snr_average}",
-                ),
-            ]
-            y = cls._draw_two_column_rows(pdf, telemetry_rows, width, margin, y)
-        else:
-            y -= 8
-            pdf.setFont("Helvetica-Oblique", 11)
-            pdf.drawString(margin, y, "No telemetry data recorded for this mission.")
-            y -= 14
+            }
+            for waypoint in sorted(
+                list(getattr(mission, "waypoints", []) or []),
+                key=lambda wp: wp.order,
+            )
+        ]
 
-        if mission.notes:
-            y -= 8
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(margin, y, "Mission Notes:")
-            y -= 16
-            pdf.setFont("Helvetica", 11)
-            for line in wrap(mission.notes, width=90):
-                pdf.drawString(margin, y, line)
-                y -= 14
+        operations_left = cls._operations_left_notes(mission, timeline_summary)
+        operations_right = cls._operations_right_notes(telemetry_summary)
 
-        if mission.waypoints:
-            y -= 6
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(margin, y, "Waypoints:")
-            y -= 16
-            pdf.setFont("Helvetica", 11)
-            for waypoint in sorted(mission.waypoints, key=lambda wp: wp.order):
-                label = (
-                    f"{waypoint.order:02d}. lat {waypoint.latitude:.5f},"
-                    f" lon {waypoint.longitude:.5f}"
-                )
-                if waypoint.altitude is not None:
-                    label += f" · alt {waypoint.altitude:.1f} m"
-                pdf.drawString(margin + 10, y, label)
-                y -= 14
-                if y < margin + 40:
-                    pdf.showPage()
-                    y = cls._draw_page_header(
-                        pdf,
-                        "Mission Waypoints (continued)",
-                        width,
-                        height,
-                        margin,
-                    )
-                    pdf.setFont("Helvetica", 11)
+        preflight_groups = cls._group_checklist(
+            mission.preflight_checklist.items if mission.preflight_checklist else []
+        )
+        postflight_groups = cls._group_checklist(
+            mission.postflight_checklist.items if mission.postflight_checklist else []
+        )
+
+        return {
+            "mission_name": mission.mission_name,
+            "generated_at": cls._format_datetime(datetime.utcnow()),
+            "metadata": metadata,
+            "timeline_rows": timeline_rows,
+            "telemetry_cards": telemetry_cards,
+            "mission_notes": mission.notes or "",
+            "waypoints": waypoints,
+            "map_data_uri": cls._to_data_uri(map_stream),
+            "signal_data_uri": cls._to_data_uri(chart_stream),
+            "operations_left": operations_left,
+            "operations_right": operations_right,
+            "preflight_groups": preflight_groups,
+            "postflight_groups": postflight_groups,
+            "logo_data_uri": cls._load_logo_data_uri(),
+        }
 
     @staticmethod
-    def _draw_two_column_rows(
-        pdf: canvas.Canvas,
-        rows: Sequence[tuple[str, str | None]],
-        width: float,
-        margin: float,
-        y: float,
-        line_height: float = 14,
-    ) -> float:
-        column_width = (width - 2 * margin) / 2
-        second_column_x = margin + column_width
-        for left, right in rows:
-            pdf.drawString(margin, y, left)
-            if right:
-                pdf.drawString(second_column_x, y, right)
-            y -= line_height
-        return y
+    def _load_logo_data_uri() -> str | None:
+        base_path = Path(current_app.root_path)
+        candidates: list[tuple[Path, str]] = [
+            (base_path / "static" / "aerialcast-logo.png", "image/png"),
+            (base_path / "static" / "aerialcast-logo.svg", "image/svg+xml"),
+            (
+                base_path.parent
+                / "web"
+                / "public"
+                / "images"
+                / "aerialcast-logo.png",
+                "image/png",
+            ),
+            (
+                base_path.parent
+                / "web"
+                / "public"
+                / "images"
+                / "aerialcast-logo.svg",
+                "image/svg+xml",
+            ),
+        ]
+
+        for logo_path, mime in candidates:
+            if not logo_path.exists():
+                continue
+            data = logo_path.read_bytes()
+            encoded = base64.b64encode(data).decode("ascii")
+            return f"data:{mime};base64,{encoded}"
+
+        return None
+
+    @staticmethod
+    def _telemetry_cards(summary: dict[str, Any]) -> list[dict[str, str]]:
+        speed_stats = summary.get("speed", {})
+        altitude_stats = summary.get("altitude", {})
+        battery_stats = summary.get("battery", {})
+        signal_stats = summary.get("signal", {})
+        snr_stats = summary.get("snr", {})
+        return [
+            {
+                "label": "Distance traveled",
+                "value": summary.get("distance_display") or "—",
+            },
+            {
+                "label": "Average speed",
+                "value": MissionExportService._format_metric(
+                    speed_stats.get("avg"), " m/s"
+                ),
+            },
+            {
+                "label": "Top speed",
+                "value": MissionExportService._format_metric(
+                    speed_stats.get("max"), " m/s"
+                ),
+            },
+            {
+                "label": "Altitude range",
+                "value": MissionExportService._range_text(altitude_stats, " m"),
+            },
+            {
+                "label": "Battery range",
+                "value": MissionExportService._range_text(battery_stats, " V"),
+            },
+            {
+                "label": "RSSI range",
+                "value": MissionExportService._range_text(signal_stats, " dBm"),
+            },
+            {
+                "label": "Average SNR",
+                "value": MissionExportService._format_metric(
+                    snr_stats.get("avg"), " dB"
+                ),
+            },
+            {
+                "label": "Last battery reading",
+                "value": MissionExportService._format_metric(
+                    battery_stats.get("latest"), " V", 2
+                ),
+            },
+        ]
+
+    @staticmethod
+    def _operations_left_notes(
+        mission: Mission, timeline_summary: dict[str, Any] | None
+    ) -> list[str]:
+        notes = [
+            f"Waypoints planned: {len(mission.waypoints or [])}",
+            f"Active geofences: {len(getattr(mission, 'active_geofences', []) or [])}",
+        ]
+        if timeline_summary:
+            notes.append(
+                "Flight window: "
+                f"{timeline_summary['start_display']} to {timeline_summary['end_display']}"
+            )
+        return notes
+
+    @staticmethod
+    def _operations_right_notes(summary: dict[str, Any]) -> list[str]:
+        speed_stats = summary.get("speed", {})
+        battery_stats = summary.get("battery", {})
+        signal_stats = summary.get("signal", {})
+        snr_stats = summary.get("snr", {})
+        return [
+            f"Distance flown: {summary.get('distance_display') or 'N/A'}",
+            "Average speed: "
+            + MissionExportService._format_metric(speed_stats.get("avg"), " m/s"),
+            "Peak speed: "
+            + MissionExportService._format_metric(speed_stats.get("max"), " m/s"),
+            "Battery range: "
+            + MissionExportService._range_text(battery_stats, " V"),
+            "RSSI range: "
+            + MissionExportService._range_text(signal_stats, " dBm"),
+            "Average SNR: "
+            + MissionExportService._format_metric(snr_stats.get("avg"), " dB"),
+        ]
+
+    @staticmethod
+    def _group_checklist(
+        items: Iterable[
+            MissionPreflightChecklistItem | MissionPostflightChecklistItem
+        ],
+    ) -> list[dict[str, Any]]:
+        groups: dict[str, list] = defaultdict(list)
+        for item in items:
+            section = item.section_title or "General"
+            groups[section].append(item)
+
+        grouped: list[dict[str, Any]] = []
+        for section, entries in sorted(groups.items(), key=lambda entry: entry[0]):
+            formatted_items = []
+            for entry in entries:
+                formatted_items.append(
+                    {
+                        "text": entry.item_text,
+                        "is_completed": bool(entry.is_completed),
+                        "note": entry.note or "",
+                    }
+                )
+            grouped.append({"section": section, "entries": formatted_items})
+        return grouped
+
+    @staticmethod
+    def _format_waypoint(
+        order: int, latitude: float, longitude: float, altitude: float | None
+    ) -> str:
+        label = f"{order:02d}. lat {latitude:.5f}, lon {longitude:.5f}"
+        if altitude is not None:
+            label += f" · alt {altitude:.1f} m"
+        return label
+
+    @staticmethod
+    def _to_data_uri(stream: io.BytesIO | None) -> str | None:
+        if not stream or stream.getbuffer().nbytes == 0:
+            return None
+        stream.seek(0)
+        encoded = base64.b64encode(stream.read()).decode("ascii")
+        return f"data:image/png;base64,{encoded}"
+
     @classmethod
     def _summarize_telemetry(
         cls, points: Sequence[TelemetryData]
@@ -371,7 +368,7 @@ class MissionExportService:
             if point.snr is not None:
                 snr_values.append(float(point.snr))
 
-            if prev:
+            if prev and point.time and prev.time:
                 dist = FlightSessionService._haversine_meters(
                     prev.latitude,
                     prev.longitude,
@@ -418,8 +415,12 @@ class MissionExportService:
             if session.end_time:
                 end_candidates.append(session.end_time)
         if points:
-            start_candidates.append(points[0].time)
-            end_candidates.append(points[-1].time)
+            first_time = points[0].time
+            last_time = points[-1].time
+            if first_time:
+                start_candidates.append(first_time)
+            if last_time:
+                end_candidates.append(last_time)
         if not start_candidates or not end_candidates:
             return None
 
@@ -427,6 +428,8 @@ class MissionExportService:
         end_time = max(end_candidates)
         duration_seconds = max(0, (end_time - start_time).total_seconds())
         last_contact = points[-1].time if points else end_time
+        if not last_contact:
+            last_contact = end_time
 
         return {
             "start": start_time,
@@ -453,6 +456,14 @@ class MissionExportService:
         if value is None:
             return "—"
         return f"{value:.{decimals}f}{suffix}"
+
+    @staticmethod
+    def _range_text(stats: dict[str, float | None], suffix: str) -> str:
+        low = stats.get("min")
+        high = stats.get("max")
+        if low is None or high is None:
+            return "N/A"
+        return f"{low:.2f}{suffix} to {high:.2f}{suffix}"
 
     @staticmethod
     def _format_datetime(value: datetime | None) -> str:
@@ -483,146 +494,17 @@ class MissionExportService:
         return " ".join(parts) if parts else "0s"
 
     @classmethod
-    def _draw_map_page(
-        cls,
-        pdf: canvas.Canvas,
-        image_stream: io.BytesIO,
-        width: float,
-        height: float,
-        margin: float,
-    ) -> None:
-        cls._draw_page_header(pdf, "Mission Footprint", width, height, margin)
-        if image_stream.getbuffer().nbytes == 0:
-            pdf.setFont("Helvetica", 12)
-            pdf.drawString(margin, height / 2, "Map data unavailable")
-            return
-
-        image_stream.seek(0)
-        image = ImageReader(image_stream)
-        img_width, img_height = image.getSize()
-        available_width = width - 2 * margin
-        available_height = height - 2 * margin - 20
-        scale = min(available_width / img_width, available_height / img_height)
-        draw_width = img_width * scale
-        draw_height = img_height * scale
-        x = (width - draw_width) / 2
-        y = (height - draw_height) / 2 - 20
-
-        pdf.setFillColor(HexColor("#e2e8f0"))
-        pdf.roundRect(
-            x - 6,
-            y - 6,
-            draw_width + 12,
-            draw_height + 12,
-            8,
-            fill=1,
-            stroke=0,
-        )
-        pdf.drawImage(image, x, y, width=draw_width, height=draw_height)
-        pdf.setFillColorRGB(0, 0, 0)
-
-    @classmethod
-    def _draw_signal_page(
-        cls,
-        pdf: canvas.Canvas,
-        image_stream: io.BytesIO,
-        width: float,
-        height: float,
-        margin: float,
-    ) -> None:
-        cls._draw_page_header(
-            pdf,
-            "Signal Quality Overview",
-            width,
-            height,
-            margin,
-        )
-        if image_stream.getbuffer().nbytes == 0:
-            pdf.setFont("Helvetica", 12)
-            pdf.drawString(margin, height / 2, "Telemetry data unavailable")
-            return
-
-        image_stream.seek(0)
-        image = ImageReader(image_stream)
-        img_width, img_height = image.getSize()
-        available_width = width - 2 * margin
-        available_height = height - 2 * margin - 20
-        scale = min(available_width / img_width, available_height / img_height)
-        draw_width = img_width * scale
-        draw_height = img_height * scale
-        x = (width - draw_width) / 2
-        y = (height - draw_height) / 2 - 20
-
-        pdf.setFillColor(HexColor("#e2e8f0"))
-        pdf.roundRect(
-            x - 6,
-            y - 6,
-            draw_width + 12,
-            draw_height + 12,
-            8,
-            fill=1,
-            stroke=0,
-        )
-        pdf.drawImage(image, x, y, width=draw_width, height=draw_height)
-        pdf.setFillColorRGB(0, 0, 0)
-
-    @classmethod
-    def _draw_checklist_page(
-        cls,
-        pdf: canvas.Canvas,
-        title: str,
-        items: Iterable[MissionPreflightChecklistItem]
-        | Iterable[MissionPostflightChecklistItem],
-        width: float,
-        height: float,
-        margin: float,
-    ) -> None:
-        y = cls._draw_page_header(pdf, title, width, height, margin)
-
-        groups: dict[str, list] = defaultdict(list)
-        for item in items:
-            section = item.section_title or "General"
-            groups[section].append(item)
-
-        if not groups:
-            pdf.setFont("Helvetica", 12)
-            pdf.drawString(margin, y, "No checklist entries recorded.")
-            return
-
-        line_height = 12
-        for section, entries in sorted(groups.items(), key=lambda entry: entry[0]):
-            pdf.setFont("Helvetica-Bold", 12)
-            pdf.drawString(margin, y, section)
-            y -= line_height
-            pdf.setFont("Helvetica", 11)
-            for item in entries:
-                status_token = "[x]" if item.is_completed else "[ ]"
-                note_suffix = f" — note: {item.note}" if item.note else ""
-                bullet = f"{status_token} {item.item_text}{note_suffix}"
-                for line in wrap(bullet, width=90):
-                    pdf.drawString(margin + 12, y, line)
-                    y -= line_height
-                    if y < margin + 40:
-                        pdf.showPage()
-                        y = cls._draw_page_header(
-                            pdf,
-                            f"{title} (continued)",
-                            width,
-                            height,
-                            margin,
-                        )
-                        pdf.setFont("Helvetica", 11)
-            y -= line_height
-
-    @classmethod
     def _render_mission_map(cls, mission: Mission) -> io.BytesIO:
-        waypoints = sorted(mission.waypoints, key=lambda wp: wp.order)
-        geofences = getattr(mission, "active_geofences", [])
+        waypoints = sorted(
+            list(getattr(mission, "waypoints", []) or []),
+            key=lambda wp: wp.order,
+        )
+        geofences = list(getattr(mission, "active_geofences", []) or [])
         if not waypoints and not geofences:
             return io.BytesIO()
 
         plt.style.use("seaborn-v0_8")
-        fig, ax = plt.subplots(figsize=(6.4, 4.6), dpi=220)
+        fig, ax = plt.subplots(figsize=(4.8, 3.2), dpi=220)
         fig.patch.set_facecolor("#f8fafc")
         ax.set_facecolor("#e2e8f0")
         ax.tick_params(colors="#334155", labelsize=9)
@@ -673,7 +555,7 @@ class MissionExportService:
                 color="#1f2937",
             )
 
-        palette = cycle(["#bae6fd", "#fde68a", "#f5d0fe", "#bbf7d0", "#fecdd3"])
+        palette_cycle = cycle(["#bae6fd", "#fde68a", "#f5d0fe", "#bbf7d0", "#fecdd3"])
         for geofence in geofences:
             points = sorted(
                 getattr(geofence, "points", []),
@@ -682,7 +564,7 @@ class MissionExportService:
             if len(points) >= 3:
                 xs = [p.longitude for p in points] + [points[0].longitude]
                 ys = [p.latitude for p in points] + [points[0].latitude]
-                face_color = next(palette)
+                face_color = next(palette_cycle)
                 label = geofence.area_name or "Geofence"
                 if label.startswith("_"):
                     label = label.lstrip("_") or "Geofence"
@@ -732,7 +614,7 @@ class MissionExportService:
 
         stream = io.BytesIO()
         fig.tight_layout()
-        fig.savefig(stream, format="png", dpi=180)
+        fig.savefig(stream, format="png", dpi=200)
         plt.close(fig)
         stream.seek(0)
         return stream
@@ -798,3 +680,4 @@ class MissionExportService:
 
 
 __all__ = ["MissionExportService"]
+

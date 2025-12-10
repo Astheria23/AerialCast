@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ mission_name | default('Mission Report') }}</title>
+    <style>
+        /* --- 1. CONFIGURATION & VARS --- */
+        :root {
+            /* Palette: Slate & Blue (Professional Tech) */
+            --color-primary: #0f172a; /* Dark Navy for headers */
+            --color-secondary: #334155; /* Slate for subtitles */
+            --color-accent: #2563eb; /* Bright Blue for highlights */
+            --color-border: #cbd5e1; /* Crisp gray borders */
+            --color-bg-light: #f1f5f9; /* Light gray for zebra striping */
+            --font-main: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-mono: "Courier New", Courier, monospace; /* For coords/data */
+        }
+
+        /* --- 2. PAGE SETUP (WeasyPrint Specifics) --- */
+        @page {
+            size: A4;
+            margin: 15mm 15mm; /* Sedikit lebih tipis biar muat banyak */
+            
+            @top-right {
+                content: element(report-logo);
+                margin-top: 4mm;
+            }
+            @bottom-left {
+                content: "AerialCast | Mission Log";
+                font-family: var(--font-main);
+                font-size: 9px;
+                color: #94a3b8;
+            }
+            @bottom-right {
+                content: "Page " counter(page) " of " counter(pages);
+                font-family: var(--font-main);
+                font-size: 9px;
+                color: #94a3b8;
+            }
+        }
+
+        /* --- 3. BASE STYLES --- */
+        * { box-sizing: border-box; }
+        
+        body {
+            font-family: var(--font-main);
+            color: var(--color-primary);
+            font-size: 11px; /* Standar dokumen cetak */
+            line-height: 1.4;
+            margin: 0;
+        }
+
+        /* --- 4. HEADER SECTION --- */
+        .report-header {
+            border-bottom: 2px solid var(--color-primary);
+            padding-bottom: 15px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 24px;
+        }
+
+        .report-header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .report-title {
+            font-size: 24px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+            margin: 0;
+            color: var(--color-primary);
+        }
+
+        .report-meta {
+            text-align: right;
+            font-size: 10px;
+            color: var(--color-secondary);
+        }
+
+        .page-logo-marker {
+            height: 0;
+            overflow: hidden;
+        }
+
+        .page-logo-capture {
+            position: running(report-logo);
+            width: 34mm;
+        }
+
+        .page-logo-capture img {
+            width: 100%;
+        }
+
+        /* --- 5. COMPONENT: SECTION HEADERS --- */
+        .section { margin-bottom: 30px; page-break-inside: avoid; }
+        
+        .section-header {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-accent);
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 4px;
+            margin-bottom: 12px;
+        }
+
+        /* --- 6. COMPONENT: KEY-VALUE GRID (Overview) --- */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3 Kolom biar padat */
+            gap: 12px;
+        }
+
+        .kv-item {
+            border-left: 3px solid var(--color-bg-light);
+            padding-left: 10px;
+        }
+
+        .kv-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            color: #64748b;
+            margin-bottom: 2px;
+        }
+
+        .kv-value {
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        /* --- 7. COMPONENT: TELEMETRY HUD (HUD Style) --- */
+        .hud-strip {
+            display: flex;
+            background: var(--color-primary);
+            color: white;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .hud-item {
+            flex: 1;
+            padding: 10px;
+            border-right: 1px solid rgba(255,255,255,0.2);
+            text-align: center;
+        }
+
+        .hud-item:last-child { border-right: none; }
+
+        .hud-label {
+            display: block;
+            font-size: 9px;
+            opacity: 0.7;
+            text-transform: uppercase;
+        }
+
+        .hud-value {
+            display: block;
+            font-size: 14px;
+            font-weight: bold;
+            font-family: var(--font-mono); /* Monospace buat angka */
+            margin-top: 2px;
+        }
+
+        /* --- 8. COMPONENT: TABLES (Waypoints & Operations) --- */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 10px;
+        }
+        
+        .data-table th {
+            text-align: left;
+            border-bottom: 1px solid var(--color-primary);
+            padding: 4px 8px;
+            text-transform: uppercase;
+            font-size: 9px;
+        }
+
+        .data-table td {
+            border-bottom: 1px solid var(--color-border);
+            padding: 6px 8px;
+        }
+
+        .data-table tr:nth-child(even) { background-color: var(--color-bg-light); }
+
+        /* Khusus Waypoint supaya hemat tempat */
+        .waypoint-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+        .waypoint-chip {
+            background: white;
+            border: 1px solid var(--color-border);
+            padding: 6px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 10px;
+        }
+
+        /* --- 9. COMPONENT: CHECKLISTS --- */
+        .checklist-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .checklist-box {
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+        }
+
+        .checklist-header {
+            background: var(--color-bg-light);
+            padding: 6px 10px;
+            font-weight: bold;
+            font-size: 11px;
+            border-bottom: 1px solid var(--color-border);
+        }
+
+        .checklist-row {
+            padding: 6px 10px;
+            border-bottom: 1px dotted var(--color-border);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checklist-row:last-child { border-bottom: none; }
+
+        /* Custom Checkbox Style */
+        .status-box {
+            width: 12px;
+            height: 12px;
+            border: 1px solid var(--color-secondary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+        
+        .status-box.checked {
+            background: var(--color-primary);
+            color: white;
+            border-color: var(--color-primary);
+        }
+
+        /* --- 10. VISUALS --- */
+        .visuals-row {
+            display: flex;
+            gap: 15px;
+            height: 180px; /* Fixed height biar rapi */
+        }
+        
+        .visual-card {
+            flex: 1;
+            border: 1px solid var(--color-border);
+            padding: 4px;
+            background: white;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .visual-card img {
+            width: 100%;
+            max-height: 100%;
+            object-fit: contain; /* Biar gambar peta gak gepeng */
+            background: #f8f9fa; /* Placeholder bg */
+        }
+
+        /* Helper Utility */
+        .mono { font-family: var(--font-mono); }
+    </style>
+</head>
+<body>
+
+    {% if logo_data_uri %}
+    <div class="page-logo-marker" aria-hidden="true">
+        <div class="page-logo-capture">
+            <img src="{{ logo_data_uri }}" alt="">
+        </div>
+    </div>
+    {% endif %}
+
+    <header class="report-header">
+        <div>
+            <h1 class="report-title">{{ mission_name | default('MISSION REPORT') }}</h1>
+            <div style="font-size:11px; margin-top:4px;">PROYEK AERIALCAST | FLIGHT LOG</div>
+        </div>
+        <div class="report-header-right">
+            <div class="report-meta">
+                <div><strong>GENERATED:</strong> {{ generated_at | default('N/A') }}</div>
+                <div><strong>MISSION ID:</strong> <span class="mono">{{ mission_id | default('AC-0000') }}</span></div>
+            </div>
+        </div>
+    </header>
+
+    <section class="section">
+        <div class="section-header">Flight Statistics</div>
+        <div class="hud-strip">
+            {% for card in telemetry_cards %}
+            <div class="hud-item">
+                <span class="hud-label">{{ card.label }}</span>
+                <span class="hud-value">{{ card.value }}</span>
+            </div>
+            {% endfor %}
+            {% if not telemetry_cards %}
+            <div class="hud-item"><span class="hud-label">STATUS</span><span class="hud-value">NO DATA</span></div>
+            {% endif %}
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">Mission Parameters</div>
+        <div class="kv-grid">
+            {% for entry in metadata %}
+            <div class="kv-item">
+                <div class="kv-label">{{ entry.label }}</div>
+                <div class="kv-value">{{ entry.value }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    {% if timeline_rows %}
+    <section class="section">
+        <div class="section-header">Execution Timeline</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%">Timestamp</th>
+                    <th>Event Log</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for left, right in timeline_rows %}
+                <tr>
+                    <td class="mono">{{ left }}</td>
+                    <td>{{ right }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <section class="section">
+        <div class="section-header">Mission Visuals</div>
+        <div class="visuals-row">
+            <div class="visual-card">
+                <div class="kv-label" style="padding:4px;">FLIGHT PATH / MAP</div>
+                {% if map_data_uri %}
+                    <img src="{{ map_data_uri }}" alt="Mission Map">
+                {% else %}
+                    <div style="text-align:center; padding-top:100px; color:#ccc;">NO MAP DATA</div>
+                {% endif %}
+            </div>
+            <div class="visual-card">
+                <div class="kv-label" style="padding:4px;">SIGNAL</div>
+                {% if signal_data_uri %}
+                    <img src="{{ signal_data_uri }}" alt="Telemetry Chart">
+                {% else %}
+                    <div style="text-align:center; padding-top:100px; color:#ccc;">NO CHART DATA</div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% if waypoints %}
+    <section class="section">
+        <div class="section-header">Waypoints Data</div>
+        <div class="waypoint-grid">
+            {% for waypoint in waypoints %}
+            <div class="waypoint-chip">
+                <strong>WP #{{ loop.index }}</strong><br>
+                {{ waypoint.label }}
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+    {% endif %}
+
+    <section class="section">
+        <div class="section-header">Operational Logs</div>
+        <div class="checklist-container">
+            <div class="checklist-box" style="background: white; border:none;">
+                <div style="font-weight:bold; margin-bottom:5px;">MISSION PLAN</div>
+                <ul style="margin-top:0; padding-left:15px; font-size:11px;">
+                    {% for item in operations_left %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+                
+                <div style="font-weight:bold; margin-bottom:5px; margin-top:15px;">NOTES</div>
+                <div style="background:#f8f9fa; padding:10px; border:1px solid #ddd; font-style:italic;">
+                    {{ mission_notes | default('No additional notes logged by pilot.') }}
+                </div>
+            </div>
+
+            <div class="checklist-box" style="background: white; border:none;">
+                <div style="font-weight:bold; margin-bottom:5px;">PERFORMANCE LOG</div>
+                <ul style="margin-top:0; padding-left:15px; font-size:11px;">
+                    {% for item in operations_right %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">Safety Checklists</div>
+        <div class="checklist-container">
+            
+            <div class="checklist-box">
+                <div class="checklist-header">PRE-FLIGHT CHECKS</div>
+                {% if preflight_groups %}
+                    {% for group in preflight_groups %}
+                        <div style="padding:4px 10px; background:#f1f5f9; font-size:9px; font-weight:bold; color:#64748b;">
+                            {{ group.section }}
+                        </div>
+                        {% for item in group.entries %}
+                        <div class="checklist-row">
+                            <div class="status-box {% if item.is_completed %}checked{% endif %}">
+                                {% if item.is_completed %}✓{% endif %}
+                            </div>
+                            <div>
+                                <div>{{ item.text }}</div>
+                                {% if item.note %}
+                                <div style="font-size:9px; color:gray;">Note: {{ item.note }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:10px;">No Pre-flight data.</div>
+                {% endif %}
+            </div>
+
+            <div class="checklist-box">
+                <div class="checklist-header">POST-FLIGHT CHECKS</div>
+                {% if postflight_groups %}
+                    {% for group in postflight_groups %}
+                        <div style="padding:4px 10px; background:#f1f5f9; font-size:9px; font-weight:bold; color:#64748b;">
+                            {{ group.section }}
+                        </div>
+                        {% for item in group.entries %}
+                        <div class="checklist-row">
+                            <div class="status-box {% if item.is_completed %}checked{% endif %}">
+                                {% if item.is_completed %}✓{% endif %}
+                            </div>
+                            <div>
+                                <div>{{ item.text }}</div>
+                                {% if item.note %}
+                                <div style="font-size:9px; color:gray;">Note: {{ item.note }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:10px;">No Post-flight data.</div>
+                {% endif %}
+            </div>
+
+        </div>
+    </section>
+
+</body>
+</html>

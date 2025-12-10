@@ -41,7 +41,10 @@ pydantic==2.12.5
 pydantic_core==2.41.5
 PyJWT==2.10.1
 python-dotenv==1.2.1
-reportlab==4.2.5
+cssselect2==0.7.0
+cairocffi==1.7.0
+pydyf==0.11.0
+weasyprint==62.3
 realtime==2.24.0
 shapely==2.1.2
 SQLAlchemy==2.0.44
