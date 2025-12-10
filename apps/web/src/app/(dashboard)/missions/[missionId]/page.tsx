@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, ClipboardCheck, ClipboardList, Loader2 } from 'lucide-react';
 
 import { MissionPreflightPanel } from '@/components/missions/mission-preflight-panel';
 import { MissionPostflightPanel } from '@/components/missions/mission-postflight-panel';
@@ -14,6 +14,14 @@ import { TelemetryVitals } from '@/components/telemetry/telemetry-vitals';
 import { MissionReplayPanel } from '@/components/telemetry/mission-replay-panel';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { useAuth } from '@/hooks/auth.hooks';
 import { useMissionPreflight } from '@/hooks/mission-preflight.hooks';
 import { useMissionPostflight } from '@/hooks/mission-postflight.hooks';
@@ -61,7 +69,10 @@ export default function MissionTelemetryPage() {
   } = useMissionPostflight({ missionId });
   const [postflightUpdatingId, setPostflightUpdatingId] = useState<string | null>(null);
   const [postflightActionError, setPostflightActionError] = useState<string | null>(null);
-  const isMissionCompleted = mission?.status === 'COMPLETED';
+  const [isPreflightSummaryOpen, setPreflightSummaryOpen] = useState(false);
+  const [isPostflightSummaryOpen, setPostflightSummaryOpen] = useState(false);
+  const missionStatus = mission?.status ?? 'DRAFT';
+  const isMissionCompleted = missionStatus === 'COMPLETED';
 
   const refreshMission = useCallback(async () => {
     if (!missionId) return;
@@ -105,9 +116,12 @@ export default function MissionTelemetryPage() {
   }, [missionId, refreshMission, fetchPreflight, fetchPostflight, setPreflightActionError, setPostflightActionError]);
 
   const canStreamTelemetry = useMemo(() => {
-    const status = mission?.status ?? 'DRAFT';
-    return status === 'APPROVED' || status === 'IN_PROGRESS' || status === 'READY_FOR_FLIGHT';
-  }, [mission?.status]);
+    return (
+      missionStatus === 'APPROVED' ||
+      missionStatus === 'IN_PROGRESS' ||
+      missionStatus === 'READY_FOR_FLIGHT'
+    );
+  }, [missionStatus]);
 
   const canControlMission = useMemo(() => {
     if (!mission || !user) {
@@ -282,6 +296,10 @@ export default function MissionTelemetryPage() {
       completed: value.completed,
     }));
   }, [preflightSource]);
+  const showPreflightEditor = Boolean(
+    mission && ['PENDING_APPROVAL', 'APPROVED', 'READY_FOR_FLIGHT'].includes(missionStatus)
+  );
+  const showPreflightSummaryButton = Boolean(preflightSource && !showPreflightEditor);
 
   const canEditPreflight = useMemo(() => {
     if (!mission || !user) {
@@ -307,7 +325,7 @@ export default function MissionTelemetryPage() {
       return false;
     }
     const status = mission.status ?? 'DRAFT';
-    const editableStatuses = new Set(['IN_PROGRESS', 'COMPLETED']);
+    const editableStatuses = new Set(['COMPLETED']);
     if (!editableStatuses.has(status)) {
       return false;
     }
@@ -321,10 +339,22 @@ export default function MissionTelemetryPage() {
     );
   }, [mission, user, isAdmin]);
 
-  const shouldShowPostflightPanel = Boolean(
-    mission && ['IN_PROGRESS', 'COMPLETED'].includes(mission.status ?? '')
-  );
-  const postflightCompleted = postflightSource?.status === 'COMPLETED';
+  const shouldShowPostflightPanel = missionStatus === 'COMPLETED';
+  const postflightCompleted = useMemo(() => {
+    if (!postflightSource) {
+      return false;
+    }
+    if (postflightSource.status === 'COMPLETED') {
+      return true;
+    }
+    const items = postflightSource.items ?? [];
+    if (!items.length) {
+      return Boolean(postflightSource.completed_at);
+    }
+    return items.every((item) => item.is_completed);
+  }, [postflightSource]);
+  const showPostflightEditor = shouldShowPostflightPanel && !postflightCompleted;
+  const showPostflightSummaryButton = Boolean(postflightSource && postflightCompleted);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -467,21 +497,58 @@ export default function MissionTelemetryPage() {
         </Card>
       )}
 
-      <MissionPreflightPanel
-        key={(preflightSource?.preflight_id ?? 'preflight-panel')}
-        missionName={mission?.mission_name}
-        preflight={preflightSource}
-        status={preflightSource?.status}
-  loading={preflightLoading}
-        error={preflightActionError ?? preflightError}
-        canEdit={canEditPreflight}
-        onRefresh={() => fetchPreflight().catch(() => null)}
-        onToggleItem={handlePreflightToggle}
-        onUpdateNote={handlePreflightNoteUpdate}
-        updatingItemId={preflightUpdatingId}
-      />
+      {showPreflightEditor ? (
+        <MissionPreflightPanel
+          key={(preflightSource?.preflight_id ?? 'preflight-panel')}
+          missionName={mission?.mission_name}
+          preflight={preflightSource}
+          status={preflightSource?.status}
+          loading={preflightLoading}
+          error={preflightActionError ?? preflightError}
+          canEdit={canEditPreflight}
+          onRefresh={() => fetchPreflight().catch(() => null)}
+          onToggleItem={handlePreflightToggle}
+          onUpdateNote={handlePreflightNoteUpdate}
+          updatingItemId={preflightUpdatingId}
+        />
+      ) : showPreflightSummaryButton ? (
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Pre-flight checklist locked</p>
+              <p className="text-sm text-muted-foreground">
+                The mission has already started. Review the recorded checks below.
+              </p>
+            </div>
+            <Dialog open={isPreflightSummaryOpen} onOpenChange={setPreflightSummaryOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-fit gap-2">
+                  <ClipboardList className="h-4 w-4" /> View pre-flight checklist
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl">
+                <DialogHeader>
+                  <DialogTitle>Pre-flight checklist</DialogTitle>
+                  <DialogDescription>Summary of all checks completed before take-off.</DialogDescription>
+                </DialogHeader>
+                <MissionPreflightPanel
+                  key={(preflightSource?.preflight_id ?? 'preflight-modal')}
+                  missionName={mission?.mission_name}
+                  preflight={preflightSource}
+                  status={preflightSource?.status}
+                  loading={preflightLoading}
+                  error={preflightError}
+                  canEdit={false}
+                  onRefresh={() => fetchPreflight().catch(() => null)}
+                  readOnly
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      ) : null}
 
-      {shouldShowPostflightPanel && (
+      {showPostflightEditor ? (
         <MissionPostflightPanel
           key={(postflightSource?.postflight_id ?? 'postflight-panel')}
           missionName={mission?.mission_name}
@@ -495,7 +562,42 @@ export default function MissionTelemetryPage() {
           onUpdateNote={handlePostflightNoteUpdate}
           updatingItemId={postflightUpdatingId}
         />
-      )}
+      ) : showPostflightSummaryButton ? (
+        <div className="rounded-2xl border border-border/60 bg-card/40 p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Post-flight checklist completed</p>
+              <p className="text-sm text-muted-foreground">
+                Review the recorded findings without altering the mission log.
+              </p>
+            </div>
+            <Dialog open={isPostflightSummaryOpen} onOpenChange={setPostflightSummaryOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-fit gap-2">
+                  <ClipboardCheck className="h-4 w-4" /> View post-flight report
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-5xl">
+                <DialogHeader>
+                  <DialogTitle>Post-flight checklist</DialogTitle>
+                  <DialogDescription>Documented results that unlocked mission replay.</DialogDescription>
+                </DialogHeader>
+                <MissionPostflightPanel
+                  key={(postflightSource?.postflight_id ?? 'postflight-modal')}
+                  missionName={mission?.mission_name}
+                  postflight={postflightSource}
+                  status={postflightSource?.status}
+                  loading={postflightLoading}
+                  error={postflightError}
+                  canEdit={false}
+                  onRefresh={() => fetchPostflight().catch(() => null)}
+                  readOnly
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      ) : null}
 
       {mission?.waypoints?.length ? (
         <Card>

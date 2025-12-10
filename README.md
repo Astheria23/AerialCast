@@ -39,7 +39,21 @@ This repository uses a **monorepo** structure, separating each application into 
 ├── apps/
 │   ├── api/          # Backend (Python Flask + MQTT Listener)
 │   ├── gcs/          # GCS Firmware (ESP32 / PlatformIO)
-│   └── web/          # Frontend Dashboard (Next.js)
-│
-└── packages/
-    └── db/           # Database Schema & Migrations (PostgreSQL)
+  └── web/          # Frontend Dashboard (Next.js)
+---
+
+## 🛠️ Development Checkpoint — December 2025
+
+The current development milestone focuses on mission readiness workflows and replay safety.
+
+- **Dual checklist support** — missions now materialize both pre-flight and post-flight checklists with status tracking, section progress, and pilot notes.
+- **Replay gating** — mission telemetry replay stays hidden until the post-flight checklist is completed, preventing premature data review.
+- **Pilot-friendly UI** — checklist panels render as tabular forms with modal summaries once a mission moves past the editable window.
+- **Schema updates** — latest Alembic migrations create the `mission_postflight_checklists` tables; run `flask db upgrade` after pulling.
+
+### Next Up
+
+- Seed reusable checklist templates for common aircraft profiles.
+- Automate session creation from the MQTT listener and auto-close active sessions when missions end.
+- Harden telemetry replay with pagination and CSV export.
+- Write end-to-end tests that validate the pre/post-flight gating rules.
