@@ -58,14 +58,39 @@ class MissionExportService:
             if map_image_bytes
             else cls._render_mission_map(mission)
         )
-        chart_stream = cls._render_signal_chart(telemetry_points)
+        rssi_stream = cls._render_metric_chart(
+            telemetry_points,
+            attr="rssi",
+            title="RSSI Trend",
+            ylabel="RSSI (dBm)",
+            legend_label="RSSI",
+            color="#2563eb",
+        )
+        snr_stream = cls._render_metric_chart(
+            telemetry_points,
+            attr="snr",
+            title="SNR Trend",
+            ylabel="SNR (dB)",
+            legend_label="SNR",
+            color="#16a34a",
+        )
+        battery_stream = cls._render_metric_chart(
+            telemetry_points,
+            attr="battery_voltage",
+            title="Battery Voltage",
+            ylabel="Voltage (V)",
+            legend_label="Battery",
+            color="#f97316",
+        )
 
         context = cls._build_template_context(
             mission=mission,
             telemetry_summary=telemetry_summary,
             timeline_summary=timeline_summary,
             map_stream=map_stream,
-            chart_stream=chart_stream,
+            rssi_stream=rssi_stream,
+            snr_stream=snr_stream,
+            battery_stream=battery_stream,
         )
 
         html = render_template("mission_report.html", **context)
@@ -81,7 +106,9 @@ class MissionExportService:
         telemetry_summary: dict[str, Any],
         timeline_summary: dict[str, Any] | None,
         map_stream: io.BytesIO,
-        chart_stream: io.BytesIO,
+        rssi_stream: io.BytesIO,
+        snr_stream: io.BytesIO,
+        battery_stream: io.BytesIO,
     ) -> dict[str, Any]:
         metadata = [
             {"label": "Mission ID", "value": str(mission.mission_id)},
@@ -164,7 +191,9 @@ class MissionExportService:
             "mission_notes": mission.notes or "",
             "waypoints": waypoints,
             "map_data_uri": cls._to_data_uri(map_stream),
-            "signal_data_uri": cls._to_data_uri(chart_stream),
+            "rssi_data_uri": cls._to_data_uri(rssi_stream),
+            "snr_data_uri": cls._to_data_uri(snr_stream),
+            "battery_data_uri": cls._to_data_uri(battery_stream),
             "operations_left": operations_left,
             "operations_right": operations_right,
             "preflight_groups": preflight_groups,
@@ -504,16 +533,24 @@ class MissionExportService:
             return io.BytesIO()
 
         plt.style.use("seaborn-v0_8")
-        fig, ax = plt.subplots(figsize=(4.8, 3.2), dpi=220)
+        fig, ax = plt.subplots(figsize=(4.0, 2.7), dpi=220)
         fig.patch.set_facecolor("#f8fafc")
         ax.set_facecolor("#e2e8f0")
         ax.tick_params(colors="#334155", labelsize=9)
         ax.grid(True, linestyle="--", linewidth=0.5, alpha=0.35)
         ax.set_aspect("equal", adjustable="datalim")
 
-        if waypoints:
-            latitudes = [wp.latitude for wp in waypoints]
-            longitudes = [wp.longitude for wp in waypoints]
+        all_latitudes: list[float] = []
+        all_longitudes: list[float] = []
+
+        valid_waypoints = [
+            wp for wp in waypoints if wp.latitude is not None and wp.longitude is not None
+        ]
+        if valid_waypoints:
+            latitudes = [wp.latitude for wp in valid_waypoints]
+            longitudes = [wp.longitude for wp in valid_waypoints]
+            all_latitudes.extend(latitudes)
+            all_longitudes.extend(longitudes)
             ax.plot(
                 longitudes,
                 latitudes,
@@ -561,11 +598,23 @@ class MissionExportService:
                 getattr(geofence, "points", []),
                 key=lambda point: point.order,
             )
-            if len(points) >= 3:
-                xs = [p.longitude for p in points] + [points[0].longitude]
-                ys = [p.latitude for p in points] + [points[0].latitude]
+            filtered_points = [
+                point
+                for point in points
+                if point.latitude is not None and point.longitude is not None
+            ]
+            if len(filtered_points) >= 3:
+                xs = [p.longitude for p in filtered_points] + [filtered_points[0].longitude]
+                ys = [p.latitude for p in filtered_points] + [filtered_points[0].latitude]
+                all_longitudes.extend([p.longitude for p in filtered_points])
+                all_latitudes.extend([p.latitude for p in filtered_points])
                 face_color = next(palette_cycle)
-                label = geofence.area_name or "Geofence"
+                label = (
+                    getattr(geofence, "area_name", None)
+                    or getattr(geofence, "geofence_name", None)
+                    or getattr(geofence, "name", None)
+                    or "Geofence"
+                )
                 if label.startswith("_"):
                     label = label.lstrip("_") or "Geofence"
                 ax.fill(
@@ -576,16 +625,36 @@ class MissionExportService:
                     label=label,
                 )
                 ax.plot(xs, ys, linestyle="--", color="#f97316", linewidth=1.15)
-                centroid_x = sum(xs[:-1]) / (len(xs) - 1)
-                centroid_y = sum(ys[:-1]) / (len(ys) - 1)
+                centroid_x, centroid_y = cls._polygon_centroid(
+                    [(p.longitude, p.latitude) for p in filtered_points]
+                )
                 ax.text(
                     centroid_x,
                     centroid_y,
-                    geofence.area_name or "Geofence",
-                    fontsize=8,
+                    label,
+                    fontsize=9,
                     color="#0f172a",
                     ha="center",
+                    va="center",
+                    weight="bold",
+                    bbox={
+                        "boxstyle": "round,pad=0.18",
+                        "facecolor": face_color,
+                        "alpha": 0.75,
+                        "edgecolor": "#64748b",
+                    },
+                    zorder=6,
                 )
+
+        if all_latitudes and all_longitudes:
+            lat_min, lat_max = min(all_latitudes), max(all_latitudes)
+            lon_min, lon_max = min(all_longitudes), max(all_longitudes)
+            lat_span = max(lat_max - lat_min, 1e-6)
+            lon_span = max(lon_max - lon_min, 1e-6)
+            pad_lat = max(lat_span * 0.08, 0.0003)
+            pad_lon = max(lon_span * 0.08, 0.0003)
+            ax.set_ylim(lat_min - pad_lat, lat_max + pad_lat)
+            ax.set_xlim(lon_min - pad_lon, lon_max + pad_lon)
 
         ax.set_title("Mission Layout", fontsize=13, color="#0f172a", pad=14)
         ax.set_xlabel("Longitude", fontsize=10)
@@ -620,55 +689,95 @@ class MissionExportService:
         return stream
 
     @staticmethod
-    def _render_signal_chart(points: Sequence[TelemetryData]) -> io.BytesIO:
+    def _polygon_centroid(
+        vertices: Sequence[tuple[float, float]]
+    ) -> tuple[float, float]:
+        """Return centroid for a closed polygon defined by longitude/latitude pairs."""
+
+        points = list(vertices)
+        if not points:
+            return (0.0, 0.0)
+        if len(points) == 1:
+            return points[0]
+
+        area = 0.0
+        cx = 0.0
+        cy = 0.0
+        for idx, (x0, y0) in enumerate(points):
+            x1, y1 = points[(idx + 1) % len(points)]
+            cross = x0 * y1 - x1 * y0
+            area += cross
+            cx += (x0 + x1) * cross
+            cy += (y0 + y1) * cross
+
+        area *= 0.5
+        if abs(area) < 1e-12:
+            avg_x = sum(x for x, _ in points) / len(points)
+            avg_y = sum(y for _, y in points) / len(points)
+            return (avg_x, avg_y)
+
+        cx /= 6.0 * area
+        cy /= 6.0 * area
+        return (cx, cy)
+
+    @staticmethod
+    def _render_metric_chart(
+        points: Sequence[TelemetryData],
+        *,
+        attr: str,
+        title: str,
+        ylabel: str,
+        legend_label: str,
+        color: str,
+    ) -> io.BytesIO:
         if not points:
             return io.BytesIO()
 
-        ordered = sorted(points, key=lambda entry: entry.time)
+        ordered = [
+            entry
+            for entry in sorted(
+                points,
+                key=lambda entry: entry.time or datetime.min,
+            )
+            if entry.time
+        ]
+        if not ordered:
+            return io.BytesIO()
         baseline = ordered[0].time
         time_axis = [
             (entry.time - baseline).total_seconds() / 60.0 for entry in ordered
         ]
-        rssi = [entry.rssi for entry in ordered]
-        snr = [entry.snr for entry in ordered]
+
+        series = [
+            (time, getattr(entry, attr, None))
+            for time, entry in zip(time_axis, ordered)
+        ]
+        filtered = [
+            (time, float(value))
+            for time, value in series
+            if value is not None
+        ]
+        if not filtered:
+            return io.BytesIO()
+
+        times, values = zip(*filtered)
 
         plt.style.use("seaborn-v0_8")
-        fig, ax = plt.subplots(figsize=(6.0, 4.2), dpi=220)
+        fig, ax = plt.subplots(figsize=(4.8, 3.0), dpi=220)
         ax.set_facecolor("#f8fafc")
         ax.grid(True, linestyle="--", linewidth=0.4, alpha=0.5)
 
-        rssi_series = [
-            (time, value)
-            for time, value in zip(time_axis, rssi)
-            if value is not None
-        ]
-        snr_series = [
-            (time, value)
-            for time, value in zip(time_axis, snr)
-            if value is not None
-        ]
-        if rssi_series:
-            rssi_times, rssi_values = zip(*rssi_series)
-            ax.plot(
-                list(rssi_times),
-                list(rssi_values),
-                label="RSSI (dBm)",
-                color="#2563eb",
-                linewidth=1.9,
-            )
-        if snr_series:
-            snr_times, snr_values = zip(*snr_series)
-            ax.plot(
-                list(snr_times),
-                list(snr_values),
-                label="SNR (dB)",
-                color="#16a34a",
-                linewidth=1.9,
-            )
+        ax.plot(
+            list(times),
+            list(values),
+            label=legend_label,
+            color=color,
+            linewidth=1.9,
+        )
 
         ax.set_xlabel("Elapsed time (minutes)", fontsize=10)
-        ax.set_ylabel("Signal", fontsize=10)
-        ax.set_title("RSSI & SNR Trend", fontsize=13, color="#0f172a")
+        ax.set_ylabel(ylabel, fontsize=10)
+        ax.set_title(title, fontsize=12, color="#0f172a")
         ax.legend(loc="best")
 
         stream = io.BytesIO()
