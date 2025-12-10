@@ -9,6 +9,7 @@ import { MissionPreflightPanel } from '@/components/missions/mission-preflight-p
 import { MissionPostflightPanel } from '@/components/missions/mission-postflight-panel';
 import { TelemetryEventFeed } from '@/components/telemetry/telemetry-event-feed';
 import { TelemetryMap } from '@/components/telemetry/telemetry-map';
+import type { TelemetryMapHandle } from '@/components/telemetry/telemetry-map';
 import { TelemetryStatusIndicator } from '@/components/telemetry/telemetry-status-indicator';
 import { TelemetryVitals } from '@/components/telemetry/telemetry-vitals';
 import { MissionReplayPanel } from '@/components/telemetry/mission-replay-panel';
@@ -27,7 +28,9 @@ import { useMissionPreflight } from '@/hooks/mission-preflight.hooks';
 import { useMissionPostflight } from '@/hooks/mission-postflight.hooks';
 import { useTelemetry } from '@/hooks/telemetry.hooks';
 import { missionsService } from '@/services/missions.service';
+import { telemetryService } from '@/services/telemetry.service';
 import type { Mission, MissionStatusAction } from '@/types/missions.types';
+import type { TelemetryPoint } from '@/types/telemetry.types';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: 'bg-slate-100 text-slate-800',
@@ -44,7 +47,7 @@ export default function MissionTelemetryPage() {
   const params = useParams<{ missionId: string }>();
   const missionId = params?.missionId ?? '';
   const { user, isAdmin, isPilot } = useAuth();
-  const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<TelemetryMapHandle | null>(null);
   const [mission, setMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -74,6 +77,9 @@ export default function MissionTelemetryPage() {
   const [postflightActionError, setPostflightActionError] = useState<string | null>(null);
   const [isPreflightSummaryOpen, setPreflightSummaryOpen] = useState(false);
   const [isPostflightSummaryOpen, setPostflightSummaryOpen] = useState(false);
+  const [completedTrail, setCompletedTrail] = useState<TelemetryPoint[]>([]);
+  const [completedLatestPoint, setCompletedLatestPoint] = useState<TelemetryPoint | undefined>(undefined);
+  const [completedTrailError, setCompletedTrailError] = useState<string | null>(null);
   const missionStatus = mission?.status ?? 'DRAFT';
   const isMissionCompleted = missionStatus === 'COMPLETED';
 
@@ -166,14 +172,22 @@ export default function MissionTelemetryPage() {
       let mapImage: string | undefined;
       if (mapRef.current) {
         try {
-          const { toPng } = await import('html-to-image');
-          const pixelRatio = typeof window !== 'undefined' ? Math.min(3, window.devicePixelRatio || 2) : 2;
-          mapImage = await toPng(mapRef.current, {
-            cacheBust: true,
-            pixelRatio,
-            backgroundColor: '#ffffff',
-            quality: 1,
-          });
+          const captureResult = await mapRef.current.captureAsDataUrl();
+          if (captureResult) {
+            mapImage = captureResult;
+          } else {
+            const container = mapRef.current.getElement();
+            if (container) {
+              const { toPng } = await import('html-to-image');
+              const pixelRatio = typeof window !== 'undefined' ? Math.min(3, window.devicePixelRatio || 2) : 2;
+              mapImage = await toPng(container, {
+                cacheBust: true,
+                pixelRatio,
+                backgroundColor: '#ffffff',
+                quality: 1,
+              });
+            }
+          }
         } catch (captureError) {
           console.warn('Unable to capture map screenshot, falling back to backend rendering', captureError);
         }
@@ -302,6 +316,52 @@ export default function MissionTelemetryPage() {
     return () => disconnect();
   }, [canStreamTelemetry, connect, disconnect, missionId]);
 
+  useEffect(() => {
+    if (!missionId || missionStatus !== 'COMPLETED') {
+      setCompletedTrail([]);
+      setCompletedLatestPoint(undefined);
+      setCompletedTrailError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCompletedTrailError(null);
+
+    const loadReplay = async () => {
+      try {
+        const latestSession = await telemetryService.getLatestSessionForMission(missionId);
+        if (!latestSession || !latestSession.session_id) {
+          if (!cancelled) {
+            setCompletedTrail([]);
+            setCompletedLatestPoint(undefined);
+          }
+          return;
+        }
+        const replay = await telemetryService.getSessionReplay(latestSession.session_id, { sampleEvery: 1 });
+        if (cancelled) {
+          return;
+        }
+        setCompletedTrail(replay ?? []);
+        setCompletedLatestPoint(replay.at(-1));
+      } catch (error) {
+        if (cancelled) {
+          return;
+        }
+        console.warn('Failed to load completed mission telemetry', error);
+        const message = error instanceof Error ? error.message : 'Unable to load mission telemetry history';
+        setCompletedTrailError(message);
+        setCompletedTrail([]);
+        setCompletedLatestPoint(undefined);
+      }
+    };
+
+    void loadReplay();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [missionId, missionStatus]);
+
   const missionStatusClass = STATUS_COLORS[mission?.status ?? 'DRAFT'] ?? STATUS_COLORS.DRAFT;
   const latestPoints = points.slice(-6).reverse();
   const shortSessionLabel = useMemo(
@@ -396,6 +456,8 @@ export default function MissionTelemetryPage() {
   }, [postflightSource]);
   const showPostflightEditor = shouldShowPostflightPanel && !postflightCompleted;
   const showPostflightSummaryButton = Boolean(postflightSource && postflightCompleted);
+  const exportTrail = isMissionCompleted ? completedTrail : points;
+  const exportLatestPoint = isMissionCompleted ? completedLatestPoint : latestPoint;
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -450,6 +512,11 @@ export default function MissionTelemetryPage() {
       {exportError && (
         <div className="flex items-center gap-3 rounded-xl border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive">
           <AlertTriangle className="h-4 w-4" /> {exportError}
+        </div>
+      )}
+      {isMissionCompleted && completedTrailError && (
+        <div className="flex items-center gap-3 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <AlertTriangle className="h-4 w-4" /> {completedTrailError}
         </div>
       )}
 
@@ -803,6 +870,21 @@ export default function MissionTelemetryPage() {
             </CardContent>
           </Card>
         </>
+      )}
+
+      {mission && isMissionCompleted && (
+        <div
+          className="pointer-events-none absolute left-[-9999px] top-0 h-[360px] w-[360px] overflow-hidden"
+          aria-hidden
+        >
+          <TelemetryMap
+            ref={mapRef}
+            waypoints={mission.waypoints}
+            trail={exportTrail}
+            latestPoint={exportLatestPoint ?? undefined}
+            geofences={mission.active_geofences}
+          />
+        </div>
       )}
 
       {mission && isMissionCompleted && !postflightCompleted && shouldShowPostflightPanel && (

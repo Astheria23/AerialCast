@@ -7,7 +7,7 @@ from collections import defaultdict
 from datetime import datetime
 from itertools import cycle
 from textwrap import wrap
-from typing import Iterable, Sequence
+from typing import Any, Iterable, Sequence
 
 import matplotlib
 
@@ -19,7 +19,7 @@ from reportlab.lib.units import cm
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from ..models.execution import TelemetryData
+from ..models.execution import FlightSession, TelemetryData
 from ..models.planning import (
     Mission,
     MissionPostflightChecklistItem,
@@ -43,9 +43,15 @@ class MissionExportService:
         )
         telemetry_points: list[TelemetryData] = []
         for session in sessions:
+
+
             telemetry_points.extend(
                 cls.telemetry_repository.list_for_session(session.session_id)
             )
+        telemetry_points.sort(key=lambda point: point.time)
+
+        telemetry_summary = cls._summarize_telemetry(telemetry_points)
+        timeline_summary = cls._mission_timeline(sessions, telemetry_points)
 
         map_image = (
             io.BytesIO(map_image_bytes)
@@ -56,14 +62,26 @@ class MissionExportService:
 
         buffer = io.BytesIO()
         pdf = canvas.Canvas(buffer, pagesize=A4)
+
+
         width, height = A4
         margin = 2 * cm
 
-        cls._draw_overview(pdf, mission, width, height, margin)
+        cls._draw_overview(
+            pdf,
+            mission,
+            telemetry_summary,
+            timeline_summary,
+            width,
+            height,
+            margin,
+        )
         pdf.showPage()
 
         cls._draw_map_page(pdf, map_image, width, height, margin)
         pdf.showPage()
+
+
 
         cls._draw_signal_page(pdf, telemetry_chart, width, height, margin)
         pdf.showPage()
@@ -139,6 +157,8 @@ class MissionExportService:
         cls,
         pdf: canvas.Canvas,
         mission: Mission,
+        telemetry_summary: dict[str, Any],
+        timeline_summary: dict[str, Any] | None,
         width: float,
         height: float,
         margin: float,
@@ -181,6 +201,87 @@ class MissionExportService:
             pdf.drawString(margin, y, f"{label}: {value}")
             y -= 14
 
+        if timeline_summary:
+            y -= 6
+            pdf.setFont("Helvetica-Bold", 12)
+            pdf.drawString(margin, y, "Flight Timeline")
+            y -= 16
+            pdf.setFont("Helvetica", 11)
+            timeline_rows = [
+                (
+                    f"Window start: {timeline_summary['start_display']}",
+                    f"Window end: {timeline_summary['end_display']}",
+                ),
+                (
+                    f"Duration: {timeline_summary['duration_display']}",
+                    f"Sessions logged: {timeline_summary['session_count']}",
+                ),
+                (
+                    f"Telemetry fixes: {timeline_summary['point_count']}",
+                    f"Last contact: {timeline_summary['last_contact_display']}",
+                ),
+            ]
+            y = cls._draw_two_column_rows(pdf, timeline_rows, width, margin, y)
+
+        if telemetry_summary.get("has_data"):
+            y -= 6
+            pdf.setFont("Helvetica-Bold", 12)
+            pdf.drawString(margin, y, "Telemetry Summary")
+            y -= 16
+            pdf.setFont("Helvetica", 11)
+
+            altitude_stats = telemetry_summary["altitude"]
+            battery_stats = telemetry_summary["battery"]
+            speed_stats = telemetry_summary["speed"]
+            signal_stats = telemetry_summary["signal"]
+            snr_stats = telemetry_summary["snr"]
+
+            altitude_range = (
+                f"{altitude_stats['min']:.0f}–{altitude_stats['max']:.0f} m"
+                if altitude_stats["min"] is not None and altitude_stats["max"] is not None
+                else "—"
+            )
+            battery_range = (
+                f"{battery_stats['min']:.2f}–{battery_stats['max']:.2f} V"
+                if battery_stats["min"] is not None and battery_stats["max"] is not None
+                else "—"
+            )
+            signal_range = (
+                f"{signal_stats['min']:.0f}–{signal_stats['max']:.0f} dBm"
+                if signal_stats["min"] is not None and signal_stats["max"] is not None
+                else "—"
+            )
+            snr_average = (
+                f"{snr_stats['avg']:.1f} dB"
+                if snr_stats["avg"] is not None
+                else "—"
+            )
+
+            telemetry_rows = [
+                (
+                    f"Distance traveled: {telemetry_summary['distance_display']}",
+                    f"Average speed: {cls._format_metric(speed_stats['avg'], 'm/s')}",
+                ),
+                (
+                    f"Top speed: {cls._format_metric(speed_stats['max'], 'm/s')}",
+                    f"Altitude range: {altitude_range}",
+                ),
+                (
+                    f"Battery range: {battery_range}",
+                    f"RSSI range: {signal_range}",
+                ),
+                (
+                    f"Last battery reading: {cls._format_metric(battery_stats['latest'], 'V', 2)}",
+                    f"Average SNR: {snr_average}",
+                ),
+            ]
+            y = cls._draw_two_column_rows(pdf, telemetry_rows, width, margin, y)
+        else:
+            y -= 8
+            pdf.setFont("Helvetica-Oblique", 11)
+            pdf.drawString(margin, y, "No telemetry data recorded for this mission.")
+            y -= 14
+
         if mission.notes:
             y -= 8
             pdf.setFont("Helvetica-Bold", 12)
@@ -216,6 +317,170 @@ class MissionExportService:
                         margin,
                     )
                     pdf.setFont("Helvetica", 11)
+
+    @staticmethod
+    def _draw_two_column_rows(
+        pdf: canvas.Canvas,
+        rows: Sequence[tuple[str, str | None]],
+        width: float,
+        margin: float,
+        y: float,
+        line_height: float = 14,
+    ) -> float:
+        column_width = (width - 2 * margin) / 2
+        second_column_x = margin + column_width
+        for left, right in rows:
+            pdf.drawString(margin, y, left)
+            if right:
+                pdf.drawString(second_column_x, y, right)
+            y -= line_height
+        return y
+    @classmethod
+    def _summarize_telemetry(
+        cls, points: Sequence[TelemetryData]
+    ) -> dict[str, Any]:
+        summary: dict[str, Any] = {
+            "has_data": bool(points),
+            "point_count": len(points),
+            "distance_m": 0.0,
+            "distance_display": "—",
+            "altitude": cls._series_stats([]),
+            "battery": cls._series_stats([]),
+            "signal": cls._series_stats([]),
+            "snr": cls._series_stats([]),
+            "speed": cls._series_stats([]),
+        }
+        if not points:
+            return summary
+
+        altitudes: list[float] = []
+        batteries: list[float] = []
+        signals: list[float] = []
+        snr_values: list[float] = []
+        speeds: list[float] = []
+        distance = 0.0
+
+        prev = None
+        for point in points:
+            if point.altitude is not None:
+                altitudes.append(float(point.altitude))
+            if point.battery_voltage is not None:
+                batteries.append(float(point.battery_voltage))
+            if point.rssi is not None:
+                signals.append(float(point.rssi))
+            if point.snr is not None:
+                snr_values.append(float(point.snr))
+
+            if prev:
+                dist = FlightSessionService._haversine_meters(
+                    prev.latitude,
+                    prev.longitude,
+                    point.latitude,
+                    point.longitude,
+                )
+                if dist is not None:
+                    distance += dist
+                    delta_seconds = (point.time - prev.time).total_seconds()
+                    if delta_seconds > 0:
+                        speeds.append(dist / delta_seconds)
+            prev = point
+
+        summary["distance_m"] = distance
+        summary["distance_display"] = cls._format_distance(distance)
+        summary["altitude"] = cls._series_stats(altitudes)
+        summary["battery"] = cls._series_stats(batteries)
+        summary["signal"] = cls._series_stats(signals)
+        summary["snr"] = cls._series_stats(snr_values)
+        summary["speed"] = cls._series_stats(speeds)
+        return summary
+
+    @staticmethod
+    def _series_stats(series: Sequence[float]) -> dict[str, float | None]:
+        if not series:
+            return {"min": None, "max": None, "avg": None, "latest": None}
+        minimum = round(min(series), 2)
+        maximum = round(max(series), 2)
+        average = round(sum(series) / len(series), 2)
+        latest = round(series[-1], 2)
+        return {"min": minimum, "max": maximum, "avg": average, "latest": latest}
+
+    @classmethod
+    def _mission_timeline(
+        cls,
+        sessions: Sequence[FlightSession],
+        points: Sequence[TelemetryData],
+    ) -> dict[str, Any] | None:
+        start_candidates: list[datetime] = []
+        end_candidates: list[datetime] = []
+        for session in sessions:
+            if session.start_time:
+                start_candidates.append(session.start_time)
+            if session.end_time:
+                end_candidates.append(session.end_time)
+        if points:
+            start_candidates.append(points[0].time)
+            end_candidates.append(points[-1].time)
+        if not start_candidates or not end_candidates:
+            return None
+
+        start_time = min(start_candidates)
+        end_time = max(end_candidates)
+        duration_seconds = max(0, (end_time - start_time).total_seconds())
+        last_contact = points[-1].time if points else end_time
+
+        return {
+            "start": start_time,
+            "end": end_time,
+            "start_display": cls._format_datetime(start_time),
+            "end_display": cls._format_datetime(end_time),
+            "duration_seconds": duration_seconds,
+            "duration_display": cls._format_duration(duration_seconds),
+            "session_count": len(sessions),
+            "point_count": len(points),
+            "last_contact_display": cls._format_datetime(last_contact),
+        }
+
+    @staticmethod
+    def _format_distance(distance_meters: float | None) -> str:
+        if distance_meters is None:
+            return "—"
+        if distance_meters >= 1000:
+            return f"{distance_meters / 1000:.2f} km"
+        return f"{distance_meters:.0f} m"
+
+    @staticmethod
+    def _format_metric(value: float | None, suffix: str, decimals: int = 1) -> str:
+        if value is None:
+            return "—"
+        return f"{value:.{decimals}f}{suffix}"
+
+    @staticmethod
+    def _format_datetime(value: datetime | None) -> str:
+        if not value:
+            return "—"
+        try:
+            localized = value.astimezone()
+        except ValueError:
+            localized = value
+        return localized.strftime("%Y-%m-%d %H:%M")
+
+    @staticmethod
+    def _format_duration(seconds: float | None) -> str:
+        if seconds is None:
+            return "—"
+        total_seconds = int(seconds)
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, secs = divmod(remainder, 60)
+        parts: list[str] = []
+        if hours:
+            parts.append(f"{hours}h")
+        if minutes:
+            parts.append(f"{minutes}m")
+        if not parts and secs:
+            parts.append(f"{secs}s")
+        elif secs and hours == 0:
+            parts.append(f"{secs}s")
+        return " ".join(parts) if parts else "0s"
 
     @classmethod
     def _draw_map_page(
