@@ -18,10 +18,21 @@ import { getFriendlyErrorMessage } from "@/lib/errors"
 import type { MaintenanceLog } from "@/types/maintenance.types"
 
 export default function MaintenancePage() {
-  const { isAdmin } = useAuth()
+  const { user, isAdmin, isPilot } = useAuth()
   const { drones, fetchDrones } = useDrones()
   const { toast } = useToast()
-  const { logs, loading, error, clearError, fetchLogs, createLog, updateLog, deleteLog } = useMaintenance()
+  const {
+    logs,
+    loading,
+    error,
+    clearError,
+    fetchLogs,
+    createLog,
+    updateLog,
+    deleteLog,
+    assignees,
+    fetchAssignees,
+  } = useMaintenance()
 
   const [selectedDroneId, setSelectedDroneId] = useState<string>("")
   const [formMode, setFormMode] = useState<"create" | "edit" | null>(null)
@@ -44,22 +55,33 @@ export default function MaintenancePage() {
     }
   }, [drones, fetchLogs, selectedDroneId])
 
+  useEffect(() => {
+    if (isAdmin) {
+      fetchAssignees().catch(() => null)
+    }
+  }, [fetchAssignees, isAdmin])
+
   const handleSelectDrone = (droneId: string) => {
     setSelectedDroneId(droneId)
     fetchLogs(droneId).catch(() => null)
   }
 
-  const canManage = isAdmin
+  const canCreateLogs = isAdmin
+  const canViewBanner = !isAdmin
   const isFormOpen = Boolean(formMode)
 
   const openCreateForm = () => {
-    if (!selectedDroneId) return
+    if (!canCreateLogs || !selectedDroneId) return
     setFormMode("create")
     setEditingLog(null)
     setFormError(null)
   }
 
   const openEditForm = (log: MaintenanceLog) => {
+    if (!canEditLog(log)) {
+      toast({ variant: "destructive", title: "Access denied", description: "You cannot edit this maintenance log." })
+      return
+    }
     setFormMode("edit")
     setEditingLog(log)
     setFormError(null)
@@ -72,18 +94,20 @@ export default function MaintenancePage() {
   }
 
   const handleCreateLog = async (payload: MaintenanceLogFormPayload) => {
-    if (!canManage) return
+    if (!canCreateLogs) return
     setIsSubmitting(true)
     setFormError(null)
     try {
       await createLog(payload.drone_id, {
         notes: payload.notes,
-        log_date: payload.log_date,
+        scheduled_for: payload.scheduled_for,
+        assigned_pilot_id: payload.assigned_pilot_id,
+        status: payload.status,
       })
       closeForm()
       toast({
         title: "Maintenance logged",
-        description: `${payload.log_date} entry saved.`,
+        description: `${payload.scheduled_for} entry saved.`,
       })
     } catch (err) {
       const message = getFriendlyErrorMessage(err, "Failed to create maintenance log")
@@ -100,18 +124,22 @@ export default function MaintenancePage() {
   }
 
   const handleUpdateLog = async (payload: MaintenanceLogFormPayload) => {
-    if (!canManage || !editingLog) return
+    if (!editingLog) return
+    const isAssignedPilot = user && editingLog.assigned_pilot_id === user.id
+    if (!isAdmin && !isAssignedPilot) return
     setIsSubmitting(true)
     setFormError(null)
     try {
       await updateLog(editingLog.log_id, {
         notes: payload.notes,
-        log_date: payload.log_date,
+        scheduled_for: payload.scheduled_for,
+        assigned_pilot_id: payload.assigned_pilot_id,
+        status: payload.status,
       })
       closeForm()
       toast({
         title: "Maintenance updated",
-        description: `Entry for ${payload.log_date} updated.`,
+        description: `Entry for ${payload.scheduled_for} updated.`,
       })
     } catch (err) {
       const message = getFriendlyErrorMessage(err, "Failed to update maintenance log")
@@ -128,7 +156,7 @@ export default function MaintenancePage() {
   }
 
   const handleDeleteLog = async (logId: string) => {
-    if (!canManage) return
+    if (!isAdmin) return
     if (!confirm("Delete this maintenance log?")) {
       return
     }
@@ -157,17 +185,55 @@ export default function MaintenancePage() {
         return log.notes.toLowerCase().includes(normalizedSearch)
       })
       .sort((a, b) => {
-        const dateA = a.log_date ? new Date(a.log_date).getTime() : 0
-        const dateB = b.log_date ? new Date(b.log_date).getTime() : 0
+        const dateA = a.scheduled_for ? new Date(a.scheduled_for).getTime() : 0
+        const dateB = b.scheduled_for ? new Date(b.scheduled_for).getTime() : 0
         return sortOrder === "recent" ? dateB - dateA : dateA - dateB
       })
   }, [logs, searchTerm, sortOrder])
+
+  const canEditLog = (log: MaintenanceLog) => {
+    if (isAdmin) return true
+    if (isPilot && user) {
+      return log.assigned_pilot_id === user.id
+    }
+    return false
+  }
 
   const selectedDrone = drones.find((drone) => drone.drone_id === selectedDroneId)
   const isListEmpty = !loading && logs.length === 0
   const noFilteredResults = logs.length > 0 && filteredLogs.length === 0
 
   const aggregatedError = transientError ?? error ?? null
+  const pilotOptions = useMemo(() => {
+    if (isAdmin) {
+      return assignees
+    }
+    if (editingLog?.assigned_pilot_id) {
+      return [
+        {
+          user_id: editingLog.assigned_pilot_id,
+          full_name: editingLog.assigned_pilot_name ?? "Assigned pilot",
+          email: "",
+        },
+      ]
+    }
+    if (user && isPilot) {
+      return [
+        {
+          user_id: user.id,
+          full_name: user.full_name ?? "",
+          email: user.email ?? "",
+        },
+      ]
+    }
+    return []
+  }, [assignees, editingLog, isAdmin, isPilot, user])
+
+  const canRenderForm = formMode === "create" ? canCreateLogs : formMode === "edit" && editingLog ? canEditLog(editingLog) : false
+  const canAssignPilot = isAdmin
+  const canEditSchedule = isAdmin
+  const canEditStatus = formMode === "create" ? isAdmin : Boolean(editingLog && canEditLog(editingLog))
+  const canEditNotes = canEditStatus
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -186,7 +252,7 @@ export default function MaintenancePage() {
             </p>
           </div>
         </div>
-        {canManage && (
+        {canCreateLogs && (
           <Button className="gap-2" onClick={openCreateForm} disabled={!selectedDroneId}>
             <Plus className="h-4 w-4" />
             Log maintenance
@@ -205,11 +271,13 @@ export default function MaintenancePage() {
         }}
       />
 
-      {!canManage && (
+      {canViewBanner && (
         <div className="flex gap-3 rounded-lg border border-dashed border-amber-500/60 bg-amber-50/60 px-4 py-3 text-sm text-amber-900">
           <ShieldAlert className="h-4 w-4 shrink-0" />
           <p>
-            You have read-only access. Contact an administrator to manage maintenance logs.
+            {isPilot
+              ? "You can update the status of maintenance logs assigned to you. Contact an administrator for new requests or reassignment."
+              : "You have read-only access. Contact an administrator to manage maintenance logs."}
           </p>
         </div>
       )}
@@ -256,7 +324,7 @@ export default function MaintenancePage() {
       </div>
 
       <Dialog
-        open={isFormOpen && canManage}
+        open={isFormOpen}
         onOpenChange={(open) => {
           if (!open) {
             closeForm()
@@ -268,21 +336,32 @@ export default function MaintenancePage() {
             <DialogTitle>{formMode === "edit" ? "Edit maintenance log" : "Log maintenance"}</DialogTitle>
             <DialogDescription>
               {formMode === "edit"
-                ? "Update the maintenance notes or log date."
-                : "Select a drone, choose the log date, and describe the maintenance performed."}
+                ? "Update status, timeline, or notes for this maintenance entry."
+                : "Schedule maintenance, assign a pilot, and describe the required work."}
             </DialogDescription>
           </DialogHeader>
-          {formMode && canManage && (
+          {formMode && canRenderForm ? (
             <MaintenanceLogForm
               key={formMode === "edit" ? editingLog?.log_id : `create-${selectedDroneId}`}
               drones={drones}
+              pilots={pilotOptions}
               mode={formMode}
               initialData={editingLog ?? undefined}
               onSubmit={formMode === "create" ? handleCreateLog : handleUpdateLog}
               onCancel={closeForm}
               isSubmitting={isSubmitting}
               error={formError}
+              canAssignPilot={canAssignPilot}
+              canEditSchedule={canEditSchedule}
+              canEditStatus={canEditStatus}
+              canEditNotes={canEditNotes}
             />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {formMode === "create"
+                ? "You do not have permission to log maintenance entries."
+                : "You do not have permission to edit this maintenance entry."}
+            </p>
           )}
         </DialogContent>
       </Dialog>
@@ -300,7 +379,7 @@ export default function MaintenancePage() {
       {isListEmpty && selectedDrone && (
         <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-16 text-center">
           <p className="text-muted-foreground">No maintenance logs for {selectedDrone.name} yet</p>
-          {canManage && (
+          {canCreateLogs && (
             <Button className="mt-4 gap-2" onClick={openCreateForm}>
               <Plus className="h-4 w-4" />
               Log maintenance
@@ -316,8 +395,8 @@ export default function MaintenancePage() {
               key={log.log_id}
               log={log}
               droneName={selectedDrone?.name}
-              onEdit={canManage ? openEditForm : undefined}
-              onDelete={canManage ? handleDeleteLog : undefined}
+              onEdit={canEditLog(log) ? openEditForm : undefined}
+              onDelete={isAdmin ? handleDeleteLog : undefined}
               disableActions={isSubmitting}
             />
           ))}

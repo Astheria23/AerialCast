@@ -1,5 +1,10 @@
 import api from '@/lib/axios'
-import { CreateMaintenanceLogPayload, MaintenanceLog, UpdateMaintenanceLogPayload } from '@/types/maintenance.types'
+import {
+  CreateMaintenanceLogPayload,
+  MaintenanceAssignee,
+  MaintenanceLog,
+  UpdateMaintenanceLogPayload,
+} from '@/types/maintenance.types'
 
 const BASE_ENDPOINT = 'api/v1'
 
@@ -21,5 +26,10 @@ export const maintenanceService = {
 
   deleteLog: async (logId: string) => {
     await api.delete(`${BASE_ENDPOINT}/maintenance/${logId}`)
+  },
+
+  getAssignees: async () => {
+    const response = await api.get<MaintenanceAssignee[]>(`${BASE_ENDPOINT}/maintenance/assignees`)
+    return response.data
   },
 }
