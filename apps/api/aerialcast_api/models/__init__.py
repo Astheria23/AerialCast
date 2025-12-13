@@ -1,6 +1,6 @@
 """Aggregated imports for SQLAlchemy models."""
 
-from .associations import mission_checklists, mission_geofences
+from .associations import mission_geofences
 from .enums import (
 	AlertType,
 	ChecklistType,
@@ -12,10 +12,16 @@ from .enums import (
 )
 from .execution import Alert, FlightSession, MaintenanceLog, TelemetryData
 from .master import Checklist, ChecklistItem, Drone, Geofence, GeofencePoint, User
-from .planning import Mission, MissionWaypoint
+from .planning import (
+	Mission,
+    MissionPostflightChecklist,
+    MissionPostflightChecklistItem,
+	MissionPreflightChecklist,
+	MissionPreflightChecklistItem,
+	MissionWaypoint,
+)
 
 __all__ = [
-	"mission_checklists",
 	"mission_geofences",
 	"AlertType",
 	"ChecklistType",
@@ -35,5 +41,9 @@ __all__ = [
 	"GeofencePoint",
 	"User",
 	"Mission",
+    "MissionPostflightChecklist",
+    "MissionPostflightChecklistItem",
+	"MissionPreflightChecklist",
+	"MissionPreflightChecklistItem",
 	"MissionWaypoint",
 ]

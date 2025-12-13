@@ -1,6 +1,6 @@
 'use client';
 
-import { BatteryCharging, Gauge, MapPin, Radio } from 'lucide-react';
+import { BatteryCharging, Gauge, MapPin, Radio, Waves } from 'lucide-react';
 
 import type { TelemetryPoint, TelemetryStatsSummary } from '@/types/telemetry.types';
 
@@ -52,6 +52,12 @@ export function TelemetryVitals({ stats, latestPoint }: TelemetryVitalsProps) {
       value: formatValue(stats.signal.latest, ' dBm'),
       subValue: stats.signal.min !== null ? `min ${stats.signal.min?.toFixed(0)} dBm` : undefined,
       icon: Radio,
+    },
+    {
+      label: 'SNR',
+      value: formatValue(stats.snr.latest, ' dB'),
+      subValue: stats.snr.average !== null ? `avg ${stats.snr.average?.toFixed(1)} dB` : undefined,
+      icon: Waves,
     },
   ];
 

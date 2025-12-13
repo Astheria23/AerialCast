@@ -23,6 +23,7 @@ const statusClasses: Record<string, string> = {
   DRAFT: "bg-slate-100 text-slate-800",
   PENDING_APPROVAL: "bg-amber-100 text-amber-800",
   APPROVED: "bg-emerald-100 text-emerald-800",
+  READY_FOR_FLIGHT: "bg-sky-100 text-sky-800",
   REJECTED: "bg-rose-100 text-rose-800",
   IN_PROGRESS: "bg-sky-100 text-sky-800",
   COMPLETED: "bg-green-100 text-green-800",
@@ -32,7 +33,8 @@ const statusClasses: Record<string, string> = {
 const statusActionMap: Partial<Record<string, MissionStatusAction[]>> = {
   DRAFT: ["submit", "cancel"],
   PENDING_APPROVAL: ["approve", "reject", "cancel"],
-  APPROVED: ["start", "cancel"],
+  APPROVED: ["cancel"],
+  READY_FOR_FLIGHT: ["start", "cancel"],
   IN_PROGRESS: ["complete", "cancel"],
 }
 
@@ -61,6 +63,11 @@ export function MissionCard({
   const availableActions = statusActionMap[status] ?? []
   const filteredActions = availableActions.filter((action) => (canPerformAction ? canPerformAction(action) : true))
   const resolvedDroneName = mission.drone_name ?? droneName ?? mission.drone_id
+  const preflight = mission.preflight_checklist
+  const preflightItems = preflight?.items ?? []
+  const preflightCompleted = preflightItems.filter((item) => item.is_completed).length
+  const preflightTotal = preflightItems.length
+  const preflightPercent = preflightTotal > 0 ? Math.round((preflightCompleted / preflightTotal) * 100) : 0
 
   return (
     <Card className="overflow-hidden">
@@ -92,6 +99,24 @@ export function MissionCard({
           <MapPin className="h-4 w-4" />
           <span>{mission.waypoints?.length || 0} waypoint(s)</span>
         </div>
+        {preflight && (
+          <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs">
+            <div className="flex items-center justify-between font-semibold text-foreground">
+              <span>Preflight</span>
+              <span>{preflightCompleted} / {preflightTotal}</span>
+            </div>
+            <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+              <span>{(preflight.status ?? 'NOT_STARTED').replace(/_/g, " ")}</span>
+              <span>{preflightPercent}%</span>
+            </div>
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+              <div
+                className="h-full rounded-full bg-primary"
+                style={{ width: `${preflightPercent}%` }}
+              />
+            </div>
+          </div>
+        )}
         <div className="flex flex-wrap gap-2">
           {filteredActions.length > 0 && onStatusAction && (
             <div className="flex flex-wrap gap-2">

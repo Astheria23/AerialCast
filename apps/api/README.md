@@ -10,6 +10,12 @@ The API is a Flask application with JWT authentication and OpenAPI documentation
 - All non-auth endpoints require a Bearer JWT token.
 - Database: PostgreSQL via SQLAlchemy + Flask-Migrate.
 
+### December 2025 Checkpoint
+
+- Missions now materialize **pre-flight** and **post-flight** checklists from assigned templates. Both surfaces expose item status, notes, and completion metadata via the API.
+- Telemetry replay stays hidden until the post-flight checklist reaches `COMPLETED`, ensuring pilots sign off before reviewing flights.
+- The latest Alembic migration creates `mission_postflight_checklists` tables—run `flask db upgrade` after pulling to keep the schema current.
+
 ## Using the API
 
 1. Register a user, then login to get a JWT access token.
@@ -20,6 +26,7 @@ The API is a Flask application with JWT authentication and OpenAPI documentation
 Tips:
 - Copy `apps/api/env.example` to `apps/api/.env` and fill in required values (database URL, JWT secret, etc.).
 - Check the interactive docs at `/docs` to try endpoints and see schemas.
+- To refresh checklist materialization (e.g., after attaching new templates), call the mission PUT endpoint with updated `checklist_ids`, then revisit the checklist endpoints described below.
 
 ## Usage Scenarios
 
@@ -139,10 +146,39 @@ curl -X POST http://localhost:5000/api/missions/<mission_id>/status/cancel \
 
 After cancellation, no further transitions are allowed.
 
+### 11. Manage Pre-flight Checklist Items
+
+```zsh
+curl -X GET http://localhost:5000/api/missions/<mission_id>/preflight \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -X PUT http://localhost:5000/api/missions/<mission_id>/preflight \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"items":[{"preflight_item_id":"<item_id>","is_completed":true,"note":"Visual inspection passed"}]}'
+```
+
+Only missions in `PENDING_APPROVAL`, `APPROVED`, or `READY_FOR_FLIGHT` can be updated. Completing all items automatically promotes the mission to `READY_FOR_FLIGHT` if it was `APPROVED`.
+
+### 12. Manage Post-flight Checklist Items
+
+```zsh
+curl -X GET http://localhost:5000/api/missions/<mission_id>/postflight \
+  -H "Authorization: Bearer $TOKEN"
+
+curl -X PUT http://localhost:5000/api/missions/<mission_id>/postflight \
+  -H "Authorization: Bearer $TOKEN" \
+  -H 'Content-Type: application/json' \
+  -d '{"items":[{"postflight_item_id":"<item_id>","is_completed":true,"note":"Propellers secured"}]}'
+```
+
+Post-flight updates are allowed only when the mission status is `COMPLETED`. Once all items are marked complete the replay becomes accessible to the frontend.
+
 ### Notes on Status Flow
 - Creation: `DRAFT` (if `save_as_draft`) else `PENDING_APPROVAL`.
 - Actions enforce allowed transitions only; invalid transitions return 400 with an error message.
 - Only ADMIN role can perform status actions.
+- Pre-flight checklist must be completed before `start` succeeds. Post-flight checklist completion is required before replay endpoints are exposed to dashboard clients.
 
 ### Common Errors & Fixes
 | Error | Cause | Fix |
@@ -195,6 +231,14 @@ After cancellation, no further transitions are allowed.
   - Change mission status via action. Requires JWT and ADMIN role.
   - Actions: `submit`, `approve`, `reject`, `start`, `complete`, `cancel`.
   - Enforces valid transitions (e.g., APPROVED -> IN_PROGRESS -> COMPLETED).
+- `GET /api/missions/{mission_id}/preflight`
+  - Fetch the mission's materialized pre-flight checklist. Requires JWT.
+- `PUT /api/missions/{mission_id}/preflight`
+  - Update pre-flight items (`is_completed`, `note`). Requires JWT. Allowed before mission start only.
+- `GET /api/missions/{mission_id}/postflight`
+  - Fetch the mission's materialized post-flight checklist. Requires JWT.
+- `PUT /api/missions/{mission_id}/postflight`
+  - Update post-flight items (`is_completed`, `note`). Requires JWT. Allowed after mission completion only.
 
 ### Flight Sessions & Logs
 - `GET /api/sessions/`

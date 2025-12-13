@@ -31,6 +31,7 @@ const DEFAULT_STATS: TelemetryStatsSummary = {
   altitude: { unit: 'm' },
   battery: { unit: 'V' },
   signal: { unit: 'dBm' },
+  snr: { unit: 'dB' },
   speed: { unit: 'm/s' },
   distance_meters: 0,
 };
@@ -65,7 +66,7 @@ export const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary =>
 
   const values = points.reduce(
     (acc, point) => {
-      const { altitude, battery_voltage, rssi, speed } = point;
+      const { altitude, battery_voltage, rssi, snr, speed } = point;
       if (typeof altitude === 'number') {
         acc.altitudes.push(altitude);
       }
@@ -75,12 +76,21 @@ export const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary =>
       if (typeof rssi === 'number') {
         acc.signals.push(rssi);
       }
+      if (typeof snr === 'number') {
+        acc.qualities.push(snr);
+      }
       if (typeof speed === 'number') {
         acc.speeds.push(speed);
       }
       return acc;
     },
-    { altitudes: [] as number[], batteries: [] as number[], signals: [] as number[], speeds: [] as number[] }
+    {
+      altitudes: [] as number[],
+      batteries: [] as number[],
+      signals: [] as number[],
+      qualities: [] as number[],
+      speeds: [] as number[],
+    }
   );
 
   const distance = points.slice(1).reduce((acc, point, index) => acc + haversineDistance(points[index], point), 0);
@@ -97,6 +107,7 @@ export const computeStats = (points: TelemetryPoint[]): TelemetryStatsSummary =>
     altitude: summarize(values.altitudes, 'm'),
     battery: summarize(values.batteries, 'V'),
     signal: summarize(values.signals, 'dBm'),
+    snr: summarize(values.qualities, 'dB'),
     speed: summarize(values.speeds, 'm/s'),
     distance_meters: Number(distance.toFixed(2)),
   };
@@ -109,9 +120,18 @@ export const deriveEvents = (points: TelemetryPoint[]): TelemetryEventItem[] => 
   return latestPoints
     .map((point, index) => {
       const summary = `Position update #${points.length - latestPoints.length + index + 1}`;
-      const details = `Lat ${point.latitude.toFixed(4)}, Lng ${point.longitude.toFixed(4)} — Alt ${
-        point.altitude?.toFixed(1) ?? '0'
-      } m`;
+      const parts = [
+        `Lat ${point.latitude.toFixed(4)}`,
+        `Lng ${point.longitude.toFixed(4)}`,
+        `Alt ${point.altitude?.toFixed(1) ?? '0'} m`,
+      ];
+      if (typeof point.rssi === 'number') {
+        parts.push(`RSSI ${point.rssi} dBm`);
+      }
+      if (typeof point.snr === 'number') {
+        parts.push(`SNR ${point.snr.toFixed(1)} dB`);
+      }
+      const details = parts.join(' • ');
       let severity: TelemetryEventItem['severity'] = 'info';
       if ((point.battery_voltage ?? 0) < 11.1) {
         severity = 'warning';

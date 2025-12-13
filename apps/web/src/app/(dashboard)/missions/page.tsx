@@ -382,7 +382,15 @@ export default function MissionsPage() {
 
       {hasMissions && (
         <div className="grid gap-4 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-4">
-          {["DRAFT", "PENDING_APPROVAL", "APPROVED", "IN_PROGRESS", "COMPLETED"].map((status) => (
+          {[
+            "DRAFT",
+            "PENDING_APPROVAL",
+            "APPROVED",
+            "READY_FOR_FLIGHT",
+            "IN_PROGRESS",
+            "COMPLETED",
+            "CANCELED",
+          ].map((status) => (
             <div key={status} className="rounded-lg border border-dashed p-3">
               <p className="text-xs text-muted-foreground">{status.replace(/_/g, " ")}</p>
               <p className="text-2xl font-semibold">{statusCounts[status] ?? 0}</p>
@@ -430,7 +438,16 @@ export default function MissionsPage() {
                 className="h-9 rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="ALL">All statuses</option>
-                {["DRAFT", "PENDING_APPROVAL", "APPROVED", "REJECTED", "IN_PROGRESS", "COMPLETED", "CANCELED"].map((status) => (
+                {[
+                  "DRAFT",
+                  "PENDING_APPROVAL",
+                  "APPROVED",
+                  "READY_FOR_FLIGHT",
+                  "REJECTED",
+                  "IN_PROGRESS",
+                  "COMPLETED",
+                  "CANCELED",
+                ].map((status) => (
                   <option key={status} value={status}>
                     {status.replace(/_/g, " ")}
                   </option>

@@ -13,6 +13,7 @@ export interface TelemetryPoint {
   altitude?: number | null;
   battery_voltage?: number | null;
   rssi?: number | null;
+  snr?: number | null;
   speed?: number | null;
   heading?: number | null;
   time?: string;
@@ -32,6 +33,7 @@ export interface TelemetryStatsSummary {
   altitude: TelemetryMetricStats;
   battery: TelemetryMetricStats;
   signal: TelemetryMetricStats;
+  snr: TelemetryMetricStats;
   speed: TelemetryMetricStats;
   distance_meters: number;
 }

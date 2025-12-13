@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ mission_name | default('Mission Report') }}</title>
+    <style>
+        /* --- 1. CONFIGURATION & VARS --- */
+        :root {
+            --color-primary: #000000;    /* Jet Black for Text & Headers */
+            --color-secondary: #475569;  /* Slate for Labels */
+            --color-accent: #2563eb;     /* Blue for specific highlights */
+            --color-border: #e2e8f0;     /* Light Gray */
+            --color-bg-light: #f8fafc;   /* Very Light Gray for Zebra */
+            
+            --color-success: #16a34a;
+            --color-warning: #d97706;
+            --color-danger: #dc2626;
+
+            --font-main: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            --font-mono: "Courier New", Courier, monospace; 
+        }
+
+        /* --- 2. PAGE SETUP --- */
+        @page {
+            size: A4;
+            margin: 5mm 15mm 15mm 15mm;
+            @bottom-left { content: "AerialCast | Flight Log Documentation"; font-family: var(--font-main); font-size: 8px; color: #94a3b8; }
+            @bottom-right { content: "Page " counter(page) " of " counter(pages); font-family: var(--font-main); font-size: 8px; color: #94a3b8; }
+        }
+
+        /* --- 3. BASE STYLES --- */
+        * { box-sizing: border-box; }
+        body { font-family: var(--font-main); color: var(--color-primary); font-size: 11px; line-height: 1.4; margin: 0; }
+
+        /* --- 4. HEADER (REVISED FINAL FIX) --- */
+        .report-header { 
+            border-bottom: 3px solid #000; 
+            padding-bottom: 10px; 
+            margin-bottom: 30px; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-end; /* Semua elemen duduk di garis bawah */
+        }
+
+        .header-left {
+            display: flex; 
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .report-title { 
+            font-size: 26px; 
+            font-weight: 900; 
+            text-transform: uppercase; 
+            letter-spacing: -0.5px; 
+            margin: 0; 
+            line-height: 1; /* Reset line-height biar gak ada gap gaib */
+            color: #000;
+        }
+        
+        .report-sub { 
+            font-size: 10px; 
+            color: var(--color-secondary); 
+            margin-top: 6px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px; 
+            font-weight: 600;
+        }
+
+        .header-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: flex-end;
+            gap: 4px; /* Jarak antara Logo dan Tanggal */
+        }
+
+        /* Container Logo */
+        .header-logo {
+            margin-bottom: 2px;
+        }
+        .header-logo img {
+            width: 140px; /* Ukuran Logo */
+            height: auto;
+            display: block;
+        }
+
+        .report-date { 
+            font-size: 10px; 
+            color: #000; 
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        /* --- 5. SECTION HEADERS (BLACK & BOLD) --- */
+        .section { margin-bottom: 35px; page-break-inside: avoid; }
+        .section-header { 
+            font-size: 11px; 
+            font-weight: 800; /* Extra Bold */
+            text-transform: uppercase; 
+            letter-spacing: 0.5px; 
+            color: #000; 
+            border-bottom: 2px solid #000; 
+            padding-bottom: 6px; 
+            margin-bottom: 15px; 
+        }
+
+        /* --- 6. FLIGHT STATS (VERTICAL LIST STYLE) --- */
+        .stats-vertical-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        
+        /* Zebra Striping */
+        .stats-vertical-table tr:nth-child(odd) { background-color: var(--color-bg-light); }
+        .stats-vertical-table tr:nth-child(even) { background-color: #ffffff; }
+
+        .stats-vertical-table td { padding: 8px 12px; }
+        
+        /* Kolom Kiri (Label) */
+        .stat-label-col { width: 40%; font-weight: 700; color: var(--color-secondary); text-transform: uppercase; font-size: 10px; }
+        
+        /* Kolom Kanan (Value) */
+        .stat-value-col { width: 60%; text-align: right; font-family: var(--font-mono); font-weight: 700; font-size: 12px; color: #000; }
+
+        /* --- 7. OVERVIEW GRID (WITH NOTES) --- */
+        .kv-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px 10px; }
+        .kv-item { border-left: 3px solid #000; padding-left: 10px; }
+        .kv-label { font-size: 9px; color: #64748b; text-transform: uppercase; margin-bottom: 3px; font-weight: 700;}
+        .kv-value { font-size: 11px; font-weight: 700; color: #000; }
+        
+        /* Notes Section didalam Overview (Span Full Width) */
+        .kv-notes-container {
+            grid-column: span 3; /* Lebar Penuh */
+            margin-top: 10px;
+            border-left: 3px solid #000;
+            padding-left: 10px;
+        }
+        .kv-notes-text {
+            font-size: 11px; font-style: italic; color: #334155; margin-top: 2px;
+        }
+
+        .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: transparent; border: 1px solid currentColor; }
+        .badge-success { color: var(--color-success); }
+        .badge-warning { color: var(--color-warning); }
+        .badge-danger  { color: var(--color-danger); }
+        .badge-neutral { color: #64748b; }
+
+        /* --- 8. SPLIT LAYOUT (MAP + WAYPOINTS) --- */
+        .split-layout { display: grid; grid-template-columns: 60% 38%; gap: 2%; align-items: start; }
+        
+        /* Map Column */
+        .map-col { border: 1px solid var(--color-border); padding: 5px; border-radius: 4px; background: white; text-align: center; }
+        .map-col img { width: 100%; height: auto; max-height: 300px; display: block; }
+        .map-label { margin-top: 8px; font-size: 9px; font-weight: 700; color: var(--color-secondary); letter-spacing: 1px; text-transform: uppercase; }
+        
+        /* Waypoints Column */
+        .wp-col { display: flex; flex-direction: column; gap: 6px; }
+        .wp-header-small { font-size: 9px; font-weight: 700; color: #000; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; border-bottom: 1px solid #ddd; padding-bottom: 2px; }
+        .wp-chip-row { border: 1px solid var(--color-border); background: white; padding: 6px 8px; border-radius: 4px; font-family: var(--font-mono); font-size: 9px; display: flex; flex-direction: column; }
+        .wp-idx { font-weight: bold; color: var(--color-accent); margin-bottom: 2px; }
+
+        /* --- 9. CHARTS & TABLES --- */
+        .visuals-grid { display: grid; gap: 15px; }
+        .visuals-grid.signal-grid { grid-template-columns: repeat(2, 1fr); } /* 2 Kolom */
+        .visual-card { border: 1px solid var(--color-border); padding: 6px; background: white; display: flex; flex-direction: column; }
+        .visual-title { font-size: 9px; font-weight: 700; color: var(--color-secondary); text-transform: uppercase; margin-bottom: 6px; text-align: center;}
+        .visual-card img { width: 100%; max-height: 160px; object-fit: contain; margin: auto; }
+
+        .data-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+        .data-table th { text-align: left; border-bottom: 2px solid #000; padding: 6px 8px; color: #000; font-weight: 800; font-size: 9px; text-transform: uppercase; }
+        .data-table td { border-bottom: 1px solid var(--color-border); padding: 6px 8px; vertical-align: middle; }
+        .data-table tr:nth-child(even) { background-color: var(--color-bg-light); }
+
+        /* --- 10. CHECKLISTS (SPACING FIXED) --- */
+        .checklist-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
+        .checklist-box { border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden; }
+        .checklist-header { background: #f1f5f9; padding: 8px 10px; font-weight: 800; font-size: 10px; border-bottom: 1px solid var(--color-border); color: #000; }
+        .checklist-row { padding: 6px 10px; border-bottom: 1px dotted var(--color-border); display: flex; align-items: start; gap: 8px; }
+        .checklist-row:last-child { border-bottom: none; }
+        
+        .check-box { width: 12px; height: 12px; border: 1px solid var(--color-secondary); display: flex; align-items: center; justify-content: center; font-size: 10px; margin-top: 1px; }
+        .check-box.checked { border-color: var(--color-success); color: var(--color-success); font-weight: bold; }
+
+        /* --- 11. SIGNATURES --- */
+        .signature-section { display: flex; justify-content: space-between; margin-top: 60px; page-break-inside: avoid; }
+        .signature-box { width: 40%; border-top: 1px solid #000; padding-top: 8px; }
+        .signature-role { font-size: 9px; color: var(--color-secondary); text-transform: uppercase; letter-spacing: 1px; }
+        .signature-name { font-size: 11px; font-weight: bold; margin-top: 6px; }
+        
+        .mono { font-family: var(--font-mono); }
+    </style>
+</head>
+<body>
+
+    <header class="report-header">
+        <div class="header-left">
+            <h1 class="report-title">{{ mission_name | default('MISSION REPORT') }}</h1>
+            <div class="report-sub">AerialCast System | Flight Log Record</div>
+        </div>
+        <div class="header-right">
+            {% if logo_data_uri %}
+            <div class="header-logo">
+                <img src="{{ logo_data_uri }}" alt="AerialCast Logo">
+            </div>
+            {% endif %}
+            <div class="report-date">DATE: {{ generated_at | default('N/A') }}</div>
+        </div>
+    </header>
+
+    <section class="section">
+        <div class="section-header">Mission Overview</div>
+        <div class="kv-grid">
+            {% for entry in metadata %}
+            <div class="kv-item">
+                <div class="kv-label">{{ entry.label }}</div>
+                <div class="kv-value">
+                    {% if entry.label == 'Status' %}
+                        <span class="badge badge-success">{{ entry.value }}</span>
+                    {% else %}
+                        {{ entry.value }}
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="kv-notes-container">
+                <div class="kv-label">Mission Notes</div>
+                <div class="kv-notes-text">
+                    {{ mission_notes | default('No notes available.') }}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">Flight Statistics</div>
+        <table class="stats-vertical-table">
+            <tbody>
+                {% if telemetry_cards and telemetry_cards|length >= 7 %}
+                <tr>
+                    <td class="stat-label-col">Total Distance Traveled</td>
+                    <td class="stat-value-col">{{ telemetry_cards[0].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Average Ground Speed</td>
+                    <td class="stat-value-col">{{ telemetry_cards[1].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Peak Speed</td>
+                    <td class="stat-value-col">{{ telemetry_cards[2].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Altitude Range (Min - Max)</td>
+                    <td class="stat-value-col">{{ telemetry_cards[3].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Battery Voltage (Start - End)</td>
+                    <td class="stat-value-col">{{ telemetry_cards[4].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Signal Strength / RSSI (Range)</td>
+                    <td class="stat-value-col">{{ telemetry_cards[5].value }}</td>
+                </tr>
+                <tr>
+                    <td class="stat-label-col">Average Signal-to-Noise (SNR)</td>
+                    <td class="stat-value-col">{{ telemetry_cards[6].value }}</td>
+                </tr>
+                {% else %}
+                <tr><td colspan="2" style="text-align:center; padding: 15px; color:#ccc;">NO FLIGHT DATA AVAILABLE</td></tr>
+                {% endif %}
+            </tbody>
+        </table>
+    </section>
+
+    {% if alerts %}
+    <section class="section">
+        <div class="section-header" style="color: var(--color-danger); border-bottom-color: var(--color-danger);">
+            ⚠️ Critical Events Log
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 20%; color: var(--color-danger); border-bottom-color: var(--color-danger);">Time</th>
+                    <th style="width: 20%; color: var(--color-danger); border-bottom-color: var(--color-danger);">Type</th>
+                    <th style="color: var(--color-danger); border-bottom-color: var(--color-danger);">Message</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for alert in alerts %}
+                <tr>
+                    <td class="mono">{{ alert.time }}</td>
+                    <td><span class="badge badge-danger">{{ alert.type }}</span></td>
+                    <td>{{ alert.message }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <section class="section">
+        <div class="section-header">Spatial Analysis</div>
+        <div class="split-layout">
+            <div class="map-col">
+                {% if map_data_uri %} <img src="{{ map_data_uri }}" alt="Mission Map"> {% else %} <div style="padding: 60px 20px; color: #cbd5e1;">NO MAP DATA</div> {% endif %}
+                <div class="map-label">GPS TRAJECTORY</div>
+            </div>
+            <div class="wp-col">
+                <div class="wp-header-small">Defined Waypoints</div>
+                {% if waypoints %}
+                    {% for waypoint in waypoints %}
+                    <div class="wp-chip-row">
+                        <span class="wp-idx">WP #{{ loop.index }}</span>
+                        <span>{{ waypoint.label }}</span>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div style="font-size:10px; color:#ccc;">No waypoints defined.</div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    {% if timeline_rows %}
+    <section class="section">
+        <div class="section-header">Execution Timeline</div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th style="width: 25%">Timestamp</th>
+                    <th>Activity Log</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for left, right in timeline_rows %}
+                <tr>
+                    <td class="mono">{{ left }}</td>
+                    <td>{{ right }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </section>
+    {% endif %}
+
+    <section class="section">
+        <div class="section-header">Signal & Power Analysis</div>
+        <div class="visuals-grid signal-grid">
+            <div class="visual-card">
+                <div class="visual-title">RSSI Trend (dBm)</div>
+                {% if rssi_data_uri %} <img src="{{ rssi_data_uri }}"> {% else %} <div style="text-align:center; padding: 40px 0; color:#cbd5e1; font-size:10px;">N/A</div> {% endif %}
+            </div>
+            <div class="visual-card">
+                <div class="visual-title">SNR Trend (dB)</div>
+                {% if snr_data_uri %} <img src="{{ snr_data_uri }}"> {% else %} <div style="text-align:center; padding: 40px 0; color:#cbd5e1; font-size:10px;">N/A</div> {% endif %}
+            </div>
+            <div class="visual-card">
+                <div class="visual-title">Battery Voltage (V)</div>
+                {% if battery_data_uri %} <img src="{{ battery_data_uri }}"> {% else %} <div style="text-align:center; padding: 40px 0; color:#cbd5e1; font-size:10px;">N/A</div> {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <section class="section">
+        <div class="section-header">Operational Logs</div>
+        <div class="checklist-container">
+            <div class="checklist-box">
+                <div class="checklist-header">PRE-FLIGHT CHECKS</div>
+                {% if preflight_groups %}
+                    {% for group in preflight_groups %}
+                        {% for item in group.entries %}
+                        <div class="checklist-row">
+                            <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
+                            <div>
+                                <div style="font-size:10px;">{{ item.text }}</div>
+                                {% if item.note %}<div style="font-size:9px; color:#94a3b8;">{{ item.note }}</div>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
+                {% endif %}
+            </div>
+
+            <div class="checklist-box">
+                <div class="checklist-header">POST-FLIGHT CHECKS</div>
+                {% if postflight_groups %}
+                    {% for group in postflight_groups %}
+                        {% for item in group.entries %}
+                        <div class="checklist-row">
+                            <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
+                            <div>
+                                <div style="font-size:10px;">{{ item.text }}</div>
+                                {% if item.note %}<div style="font-size:9px; color:#94a3b8;">{{ item.note }}</div>{% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% endfor %}
+                {% else %}
+                    <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
+                {% endif %}
+            </div>
+        </div>
+    </section>
+
+    <div class="signature-section">
+        <div class="signature-box">
+            <div class="signature-role">Pilot in Command</div>
+            <div class="signature-name">{{ pilot_name | default('( ........................... )') }}</div>
+        </div>
+        <div class="signature-box">
+            <div class="signature-role">Approved By</div>
+            <div class="signature-name">{{ supervisor_name | default('( ........................... )') }}</div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -30,7 +30,12 @@ class User(db.Model):
         DateTime(timezone=True), default=datetime.utcnow
     )
 
-    created_missions: Mapped[List["Mission"]] = relationship(back_populates="creator")
+    created_missions: Mapped[List["Mission"]] = relationship(
+        back_populates="creator", foreign_keys="Mission.created_by_user_id"
+    )
+    assigned_missions: Mapped[List["Mission"]] = relationship(
+        back_populates="assigned_pilot", foreign_keys="Mission.assigned_pilot_id"
+    )
     flight_sessions: Mapped[List["FlightSession"]] = relationship(back_populates="pilot")
     maintenance_logs: Mapped[List["MaintenanceLog"]] = relationship(
         back_populates="serviced_by"
@@ -145,9 +150,6 @@ class Checklist(db.Model):
 
     items: Mapped[List["ChecklistItem"]] = relationship(
         back_populates="checklist", cascade="all, delete-orphan"
-    )
-    missions: Mapped[List["Mission"]] = relationship(
-        secondary="mission_checklists", back_populates="required_checklists"
     )
 
 

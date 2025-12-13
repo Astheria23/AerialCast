@@ -10,6 +10,24 @@ from ..models.master import Drone
 from .flight_session_service import FlightSessionService
 
 
+def _coerce_float(value):
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_int(value):
+    if value is None:
+        return None
+    try:
+        return int(float(value))
+    except (TypeError, ValueError):
+        return None
+
+
 class TelemetryService:
     @staticmethod
     def process_telemetry_data(payload: dict):
@@ -65,9 +83,10 @@ class TelemetryService:
             new_telemetry.session_id = session.session_id
             new_telemetry.latitude = float(lat)
             new_telemetry.longitude = float(lon)
-            new_telemetry.altitude = payload.get("alt")
-            new_telemetry.battery_voltage = payload.get("vbat")
-            new_telemetry.rssi = payload.get("rssi")
+            new_telemetry.altitude = _coerce_float(payload.get("alt"))
+            new_telemetry.battery_voltage = _coerce_float(payload.get("vbat"))
+            new_telemetry.rssi = _coerce_int(payload.get("rssi"))
+            new_telemetry.snr = _coerce_float(payload.get("snr"))
 
             db.session.add(new_telemetry)
             db.session.commit()

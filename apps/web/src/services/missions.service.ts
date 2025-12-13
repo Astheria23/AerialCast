@@ -3,6 +3,10 @@ import {
   CreateMissionPayload,
   Mission,
   MissionStatusAction,
+  MissionPreflightChecklist,
+  MissionPreflightUpdatePayload,
+  MissionPostflightChecklist,
+  MissionPostflightUpdatePayload,
   UpdateMissionPayload,
 } from '@/types/missions.types';
 
@@ -38,5 +42,50 @@ export const missionsService = {
       `${MISSIONS_ENDPOINT}/${missionId}/status/${action}`
     );
     return response.data;
+  },
+
+  getMissionPreflight: async (missionId: string) => {
+    const response = await api.get<MissionPreflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/preflight`
+    );
+    return response.data;
+  },
+
+  updateMissionPreflight: async (
+    missionId: string,
+    payload: MissionPreflightUpdatePayload
+  ) => {
+    const response = await api.put<MissionPreflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/preflight`,
+      payload
+    );
+    return response.data;
+  },
+
+  getMissionPostflight: async (missionId: string) => {
+    const response = await api.get<MissionPostflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/postflight`
+    );
+    return response.data;
+  },
+
+  updateMissionPostflight: async (
+    missionId: string,
+    payload: MissionPostflightUpdatePayload
+  ) => {
+    const response = await api.put<MissionPostflightChecklist>(
+      `${MISSIONS_ENDPOINT}/${missionId}/postflight`,
+      payload
+    );
+    return response.data;
+  },
+
+  exportMissionPdf: async (missionId: string, mapImage?: string) => {
+    const response = await api.post(
+      `${MISSIONS_ENDPOINT}/${missionId}/export`,
+      mapImage ? { map_image: mapImage } : {},
+      { responseType: 'blob' }
+    );
+    return response.data as Blob;
   },
 };

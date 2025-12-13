@@ -1,6 +1,7 @@
 """Flight session management services."""
 
 from datetime import datetime
+from math import atan2, cos, radians, sin, sqrt
 
 from ..extensions import db
 from ..models.enums import DroneStatus, MissionStatus, SessionStatus, UserRole
@@ -80,13 +81,14 @@ class FlightSessionService:
     def get_telemetry_replay(cls, session_id, since=None, until=None, limit=None, sample_every=None):
         """Return telemetry replay for a session with optional windowing."""
 
-        return cls.telemetry_repository.list_for_session(
+        points = cls.telemetry_repository.list_for_session(
             session_id,
             since=since,
             until=until,
             limit=limit,
             sample_every=sample_every,
         )
+        return cls._with_computed_speed(points)
 
     @staticmethod
     def end_session(session_id):
@@ -103,6 +105,42 @@ class FlightSessionService:
 
         db.session.commit()
         return session
+
+    @staticmethod
+    def _with_computed_speed(points):
+        result = []
+        prev = None
+        for point in points:
+            data = point.to_dict()
+            data["speed"] = None
+            if prev:
+                delta_seconds = (point.time - prev.time).total_seconds()
+                if delta_seconds > 0:
+                    distance = FlightSessionService._haversine_meters(
+                        prev.latitude,
+                        prev.longitude,
+                        point.latitude,
+                        point.longitude,
+                    )
+                    if distance is not None:
+                        data["speed"] = round(distance / delta_seconds, 2)
+            result.append(data)
+            prev = point
+        return result
+
+    @staticmethod
+    def _haversine_meters(lat1, lon1, lat2, lon2):
+        values = [lat1, lon1, lat2, lon2]
+        if any(value is None for value in values):
+            return None
+        r = 6371000.0
+        φ1 = radians(lat1)
+        φ2 = radians(lat2)
+        Δφ = radians(lat2 - lat1)
+        Δλ = radians(lon2 - lon1)
+        a = sin(Δφ / 2) ** 2 + cos(φ1) * cos(φ2) * sin(Δλ / 2) ** 2
+        c = 2 * atan2(sqrt(a), sqrt(1 - a))
+        return r * c
 
 
 __all__ = ["FlightSessionService"]
