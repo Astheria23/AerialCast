@@ -295,6 +295,7 @@ export default function MissionTelemetryPage() {
     latestPoint,
     stats,
     events,
+    alerts,
     connectionState,
     error: telemetryError,
     connect,
@@ -368,10 +369,7 @@ export default function MissionTelemetryPage() {
     () => (activeSessionId ? `${activeSessionId.slice(0, 8)}…` : null),
     [activeSessionId]
   );
-  const alertEvents = useMemo(
-    () => events.filter((event) => event.severity && event.severity !== 'info'),
-    [events]
-  );
+  const alertEvents = alerts;
   const droneLabel = mission?.drone_name ?? mission?.drone_id ?? '—';
   const pilotLabel = mission?.pilot_name ?? 'Unassigned';
   const preflightSource = preflight ?? mission?.preflight_checklist ?? null;

@@ -173,7 +173,6 @@ class DroneSpecsSchema(Schema):
     image_url = fields.String()
     image_base64 = fields.String(load_only=True)
 
-
 class MissionUpdateSchema(Schema):
     mission_name = fields.String()
     notes = fields.String()
@@ -365,6 +364,18 @@ class GeofenceUpdateSchema(Schema):
     points = fields.List(fields.Nested(GeofencePointSchema))
 
 
+class AlertSchema(Schema):
+    alert_id = fields.UUID(dump_only=True)
+    session_id = fields.UUID(dump_only=True, allow_none=True)
+    alert_type = fields.Method("_dump_alert_type", dump_only=True)
+    message = fields.String(dump_only=True, allow_none=True)
+    timestamp = fields.DateTime(dump_only=True)
+
+    def _dump_alert_type(self, obj):
+        value = getattr(obj, "alert_type", None)
+        return value.value if value else None
+
+
 __all__ = [
     "MissionWaywpointSchema",
     "MissionPreflightItemSchema",
@@ -385,10 +396,10 @@ __all__ = [
     "TelemetryDataSchema",
     "FlightSessionSchema",
     "MaintenanceLogSchema",
-        "ChecklistItemSchema",
-        "MaintenanceLogCreateSchema",
-        "MaintenanceLogUpdateSchema",
-        "MaintenanceAssigneeSchema",
+    "ChecklistItemSchema",
+    "MaintenanceLogCreateSchema",
+    "MaintenanceLogUpdateSchema",
+    "MaintenanceAssigneeSchema",
     "ChecklistSchema",
     "ChecklistUpdateSchema",
     "ChecklistRefSchema",
@@ -396,4 +407,5 @@ __all__ = [
     "GeofencePointSchema",
     "GeofenceSchema",
     "GeofenceUpdateSchema",
+    "AlertSchema",
 ]

@@ -24,6 +24,7 @@ from ..models.planning import (
     MissionPostflightChecklistItem,
     MissionPreflightChecklistItem,
 )
+from ..repositories import AlertRepository
 from .flight_session_service import FlightSessionService
 from .mission_service import MissionService
 
@@ -32,6 +33,8 @@ class MissionExportService:
     """Render a mission summary PDF including telemetry analytics."""
 
     telemetry_repository = FlightSessionService.telemetry_repository
+    alert_repository = AlertRepository
+    MAX_ALERT_ROWS = 40
 
     @classmethod
     def build_pdf(cls, mission_id, *, map_image_bytes: bytes | None = None) -> bytes:
@@ -53,6 +56,19 @@ class MissionExportService:
 
         telemetry_summary = cls._summarize_telemetry(telemetry_points)
         timeline_summary = cls._mission_timeline(sessions, telemetry_points)
+
+        alert_records = cls.alert_repository.list_for_sessions(
+            [session.session_id for session in sessions],
+            limit=cls.MAX_ALERT_ROWS,
+        )
+        alerts = [
+            {
+                "time": cls._format_datetime(record.timestamp),
+                "type": getattr(record.alert_type, "value", None),
+                "message": record.message or "",
+            }
+            for record in reversed(alert_records)
+        ]
 
         map_stream = (
             io.BytesIO(map_image_bytes)
@@ -92,6 +108,7 @@ class MissionExportService:
             rssi_stream=rssi_stream,
             snr_stream=snr_stream,
             battery_stream=battery_stream,
+            alerts=alerts,
         )
 
         html = render_template("mission_report.html", **context)
@@ -110,6 +127,7 @@ class MissionExportService:
         rssi_stream: io.BytesIO,
         snr_stream: io.BytesIO,
         battery_stream: io.BytesIO,
+        alerts: Sequence[dict[str, Any]],
     ) -> dict[str, Any]:
         metadata = [
             {"label": "Mission ID", "value": str(mission.mission_id)},
@@ -200,6 +218,7 @@ class MissionExportService:
             "preflight_groups": preflight_groups,
             "postflight_groups": postflight_groups,
             "logo_data_uri": cls._load_logo_data_uri(),
+            "alerts": alerts,
         }
 
     @staticmethod
