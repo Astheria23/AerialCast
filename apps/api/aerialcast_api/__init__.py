@@ -29,10 +29,30 @@ def create_app(env: str | None = None) -> Flask:
 	"""Application factory used by both API and background tasks."""
 
 	app = Flask(__name__)
-	cors.init_app(app)
 
 	config_class = get_config(env or os.getenv("AERIALCAST_ENV") or os.getenv("FLASK_ENV"))
 	app.config.from_object(config_class)
+
+	allowed_origins = app.config.get("CORS_ALLOWED_ORIGINS")
+	if isinstance(allowed_origins, str):
+		allowed_origins = [origin.strip() for origin in allowed_origins.split(",") if origin.strip()]
+	default_origins = [
+		"http://localhost:3000",
+		"http://127.0.0.1:3000",
+	]
+	if isinstance(allowed_origins, (list, tuple, set)):
+		default_origins.extend(str(origin).strip() for origin in allowed_origins if str(origin).strip())
+	# Deduplicate while preserving order for deterministic configs
+	deduped_origins: list[str] = []
+	for origin in default_origins:
+		if origin not in deduped_origins:
+			deduped_origins.append(origin)
+
+	cors.init_app(
+		app,
+		resources={r"/api/*": {"origins": deduped_origins}},
+		supports_credentials=True,
+	)
 
 	app.config.setdefault("API_TITLE", "AerialCast API")
 	app.config.setdefault("API_VERSION", "v1")
