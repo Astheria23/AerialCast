@@ -4,7 +4,12 @@ from flask.views import MethodView
 from flask_smorest import Blueprint
 from flask_jwt_extended import get_jwt, get_jwt_identity, jwt_required
 
-from ...schemas import MaintenanceLogSchema
+from ...schemas import (
+	MaintenanceAssigneeSchema,
+	MaintenanceLogCreateSchema,
+	MaintenanceLogSchema,
+	MaintenanceLogUpdateSchema,
+)
 from ...services.maintenance_service import MaintenanceService
 from ..utils import abort_with_payload
 
@@ -29,12 +34,17 @@ class DroneMaintenanceList(MethodView):
 
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()
-	@blp.arguments(MaintenanceLogSchema)
+	@blp.arguments(MaintenanceLogCreateSchema)
 	@blp.response(201, MaintenanceLogSchema)
 	def post(self, log_data, drone_id):
 		"""Add a maintenance log entry."""
 
 		user_id = get_jwt_identity()
+		claims = get_jwt()
+		role = claims.get("role")
+		if role != "ADMIN":
+			abort_with_payload(403, {"error": "Only admins can schedule maintenance"})
+
 		result, status = MaintenanceService.create_log(drone_id, log_data, user_id)
 
 		if status != 201:
@@ -46,7 +56,7 @@ class DroneMaintenanceList(MethodView):
 class MaintenanceDetail(MethodView):
 	@blp.doc(security=[{"BearerAuth": []}])
 	@jwt_required()
-	@blp.arguments(MaintenanceLogSchema(partial=True))
+	@blp.arguments(MaintenanceLogUpdateSchema)
 	@blp.response(200, MaintenanceLogSchema)
 	def put(self, log_data, log_id):
 		"""Update a maintenance log."""
@@ -73,6 +83,17 @@ class MaintenanceDetail(MethodView):
 		if status != 200:
 			abort_with_payload(status, result)
 		return result
+
+
+@blp.route("/maintenance/assignees", strict_slashes=False)
+class MaintenanceAssignees(MethodView):
+	@blp.doc(security=[{"BearerAuth": []}])
+	@jwt_required()
+	@blp.response(200, MaintenanceAssigneeSchema(many=True))
+	def get(self):
+		"""List available maintenance assignees (pilots)."""
+
+		return MaintenanceService.list_assignees()
 
 
 __all__ = ["blp"]

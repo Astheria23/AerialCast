@@ -38,7 +38,12 @@ class User(db.Model):
     )
     flight_sessions: Mapped[List["FlightSession"]] = relationship(back_populates="pilot")
     maintenance_logs: Mapped[List["MaintenanceLog"]] = relationship(
-        back_populates="serviced_by"
+        back_populates="assigned_pilot",
+        foreign_keys="MaintenanceLog.assigned_pilot_id",
+    )
+    created_maintenance_logs: Mapped[List["MaintenanceLog"]] = relationship(
+        back_populates="created_by",
+        foreign_keys="MaintenanceLog.created_by_user_id",
     )
 
     def to_dict(self) -> dict:

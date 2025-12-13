@@ -15,6 +15,12 @@ class DroneStatus(enum.Enum):
     RETIRED = "RETIRED"
 
 
+class MaintenanceStatus(enum.Enum):
+    SCHEDULED = "SCHEDULED"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+
+
 class GeofenceType(enum.Enum):
     SAFE_ZONE = "SAFE_ZONE"
     NO_FLY_ZONE = "NO_FLY_ZONE"
@@ -58,6 +64,7 @@ class AlertType(enum.Enum):
 __all__ = [
     "UserRole",
     "DroneStatus",
+    "MaintenanceStatus",
     "GeofenceType",
     "ChecklistType",
     "MissionStatus",

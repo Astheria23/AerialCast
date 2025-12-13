@@ -4,7 +4,7 @@ from datetime import datetime
 
 from marshmallow import Schema, ValidationError, fields, validate
 
-from .models.enums import ChecklistType, GeofenceType
+from .models.enums import ChecklistType, GeofenceType, MaintenanceStatus
 
 
 class MissionWaywpointSchema(Schema):
@@ -211,12 +211,43 @@ class FlightSessionSchema(Schema):
 
 class MaintenanceLogSchema(Schema):
     log_id = fields.UUID(dump_only=True)
-    drone_id = fields.UUID(required=True)
+    drone_id = fields.UUID(dump_only=True)
+    notes = fields.String()
+    status = fields.String(dump_only=True)
+    scheduled_for = fields.Date(dump_only=True)
+    assigned_pilot_id = fields.UUID(dump_only=True, allow_none=True)
+    assigned_pilot_name = fields.String(dump_only=True, allow_none=True)
+    created_by_user_id = fields.UUID(dump_only=True, allow_none=True)
+    created_by_name = fields.String(dump_only=True, allow_none=True)
+    started_at = fields.DateTime(dump_only=True, allow_none=True)
+    completed_at = fields.DateTime(dump_only=True, allow_none=True)
+
+
+class MaintenanceLogCreateSchema(Schema):
     notes = fields.String(required=True)
-    log_date = fields.Date(load_default=lambda: datetime.utcnow().date())
-    serviced_by_user_id = fields.UUID(required=True)
-    serviced_by_name = fields.String(dump_only=True)
-    serviced_by_name = fields.String(dump_only=True)
+    scheduled_for = fields.Date(load_default=lambda: datetime.utcnow().date())
+    log_date = fields.Date(load_only=True)
+    assigned_pilot_id = fields.UUID(required=True)
+    status = fields.String(
+        validate=validate.OneOf([status.name for status in MaintenanceStatus]),
+        load_default=MaintenanceStatus.SCHEDULED.name,
+    )
+
+
+class MaintenanceLogUpdateSchema(Schema):
+    notes = fields.String()
+    scheduled_for = fields.Date()
+    log_date = fields.Date(load_only=True)
+    assigned_pilot_id = fields.UUID()
+    status = fields.String(
+        validate=validate.OneOf([status.name for status in MaintenanceStatus])
+    )
+
+
+class MaintenanceAssigneeSchema(Schema):
+    user_id = fields.UUID(dump_only=True)
+    full_name = fields.String(dump_only=True)
+    email = fields.Email(dump_only=True)
 
 
 class ChecklistItemSchema(Schema):
@@ -317,7 +348,10 @@ __all__ = [
     "TelemetryDataSchema",
     "FlightSessionSchema",
     "MaintenanceLogSchema",
-    "ChecklistItemSchema",
+        "ChecklistItemSchema",
+        "MaintenanceLogCreateSchema",
+        "MaintenanceLogUpdateSchema",
+        "MaintenanceAssigneeSchema",
     "ChecklistSchema",
     "ChecklistUpdateSchema",
     "ChecklistRefSchema",
