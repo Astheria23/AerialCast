@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from ..extensions import db
-from .enums import AlertType, SessionStatus
+from .enums import AlertType, MaintenanceStatus, SessionStatus
 
 if TYPE_CHECKING:  # pragma: no cover
     from .master import Drone, User
@@ -124,24 +124,56 @@ class MaintenanceLog(db.Model):
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
     )
     drone_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("drones.drone_id"))
-    serviced_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+    created_by_user_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("users.user_id"), nullable=True
     )
-    log_date: Mapped[date] = mapped_column(Date, default=datetime.utcnow)
+    assigned_pilot_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        "serviced_by_user_id", ForeignKey("users.user_id"), nullable=True
+    )
+    scheduled_for: Mapped[date] = mapped_column("log_date", Date, default=datetime.utcnow)
+    status: Mapped[MaintenanceStatus] = mapped_column(
+        Enum(MaintenanceStatus), default=MaintenanceStatus.SCHEDULED
+    )
+    started_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    completed_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     notes: Mapped[str] = mapped_column(Text)
 
     drone: Mapped["Drone"] = relationship(back_populates="maintenance_logs")
-    serviced_by: Mapped[Optional["User"]] = relationship(back_populates="maintenance_logs")
+    assigned_pilot: Mapped[Optional["User"]] = relationship(
+        back_populates="maintenance_logs",
+        foreign_keys=[assigned_pilot_id],
+    )
+    created_by: Mapped[Optional["User"]] = relationship(
+        back_populates="created_maintenance_logs",
+        foreign_keys=[created_by_user_id],
+    )
 
     def to_dict(self) -> dict:
         return {
             "log_id": str(self.log_id),
             "drone_id": str(self.drone_id),
-            "serviced_by_user_id": str(self.serviced_by_user_id)
-            if self.serviced_by_user_id
+            "created_by_user_id": str(self.created_by_user_id)
+            if self.created_by_user_id
             else None,
-            "log_date": self.log_date.isoformat(),
+            "assigned_pilot_id": str(self.assigned_pilot_id)
+            if self.assigned_pilot_id
+            else None,
+            "scheduled_for": self.scheduled_for.isoformat(),
+            "status": self.status.value,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "completed_at":
+                self.completed_at.isoformat() if self.completed_at else None,
             "notes": self.notes,
+            "assigned_pilot_name": getattr(
+                getattr(self, "assigned_pilot", None), "full_name", None
+            ),
+            "created_by_name": getattr(
+                getattr(self, "created_by", None), "full_name", None
+            ),
         }
 
 

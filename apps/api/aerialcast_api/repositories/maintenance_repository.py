@@ -18,7 +18,7 @@ class MaintenanceRepository(Repository[MaintenanceLog]):
         stmt = (
             select(MaintenanceLog)
             .filter_by(drone_id=drone_id)
-            .order_by(MaintenanceLog.log_date.desc())
+            .order_by(MaintenanceLog.scheduled_for.desc())
         )
         return list(cls.session().execute(stmt).scalars())
 

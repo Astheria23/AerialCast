@@ -46,6 +46,9 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
     events,
     playback,
     timeline,
+    missionWaypoints,
+    missionGeofences,
+    missionLoading,
   } = useMissionReplay({ missionId, ...replayOptions });
 
   const play = playback.play;
@@ -69,6 +72,8 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
   }, [timeline]);
 
   const progressPercent = Math.round(playback.progress * 100);
+  const hasMapData = replayPoints.length > 0 || missionWaypoints.length > 0 || missionGeofences.length > 0;
+  const mapBusy = (replayLoading || missionLoading) && !hasMapData;
 
   return (
     <Card className="h-full overflow-hidden">
@@ -104,12 +109,17 @@ export function MissionReplayPanel(props: MissionReplayPanelProps) {
         </div>
         <div className="space-y-4">
           <div className="h-80 rounded-2xl border border-border/60 bg-card/60 p-2">
-            {replayLoading ? (
+            {mapBusy ? (
               <div className="flex h-full items-center justify-center text-muted-foreground">
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading replay data…
               </div>
-            ) : replayPoints.length ? (
-              <TelemetryMap waypoints={[]} trail={replayPoints} latestPoint={currentPoint} />
+            ) : hasMapData ? (
+              <TelemetryMap
+                waypoints={missionWaypoints}
+                geofences={missionGeofences}
+                trail={replayPoints}
+                latestPoint={currentPoint}
+              />
             ) : (
               <div className="flex h-full items-center justify-center text-muted-foreground">No replay data yet.</div>
             )}
@@ -192,6 +202,10 @@ function SelectedSessionSummary({
         <div>
           <dt className="text-[10px] uppercase tracking-wide">Aircraft</dt>
           <dd className="text-sm text-foreground">{session.drone_name ?? 'N/A'}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] uppercase tracking-wide">LoRa ID</dt>
+          <dd className="text-sm text-foreground">{session.drone_lora_id ?? '—'}</dd>
         </div>
       </dl>
       <p className="mt-3 text-xs text-muted-foreground">

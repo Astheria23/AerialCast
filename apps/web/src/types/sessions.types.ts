@@ -11,4 +11,5 @@ export interface FlightSession {
   mission_name?: string | null;
   drone_name?: string | null;
   pilot_name?: string | null;
+  drone_lora_id?: string | null;
 }

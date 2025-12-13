@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Iterable, Optional, Sequence
 
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
 from ..models.enums import SessionStatus
 from ..models.execution import FlightSession
@@ -21,7 +22,15 @@ class FlightSessionRepository(Repository[FlightSession]):
 
     @classmethod
     def list_all(cls) -> Sequence[FlightSession]:  # type: ignore[override]
-        stmt = select(FlightSession).order_by(FlightSession.start_time.desc())
+        stmt = (
+            select(FlightSession)
+            .options(
+                joinedload(FlightSession.mission),
+                joinedload(FlightSession.drone),
+                joinedload(FlightSession.pilot),
+            )
+            .order_by(FlightSession.start_time.desc())
+        )
         return list(cls.session().execute(stmt).scalars())
 
     @classmethod
@@ -31,7 +40,11 @@ class FlightSessionRepository(Repository[FlightSession]):
         statuses: Optional[Iterable[SessionStatus]] = None,
         limit: Optional[int] = None,
     ):
-        stmt = select(FlightSession)
+        stmt = select(FlightSession).options(
+            joinedload(FlightSession.mission),
+            joinedload(FlightSession.drone),
+            joinedload(FlightSession.pilot),
+        )
         if mission_id is not None:
             stmt = stmt.filter(FlightSession.mission_id == mission_id)
         if statuses:

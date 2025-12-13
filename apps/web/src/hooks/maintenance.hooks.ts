@@ -4,6 +4,7 @@ import { getFriendlyErrorMessage } from '@/lib/errors'
 import { maintenanceService } from '@/services/maintenance.service'
 import {
   CreateMaintenanceLogPayload,
+  MaintenanceAssignee,
   MaintenanceLog,
   UpdateMaintenanceLogPayload,
 } from '@/types/maintenance.types'
@@ -13,6 +14,7 @@ export const useMaintenance = () => {
   const [activeDroneId, setActiveDroneId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [assignees, setAssignees] = useState<MaintenanceAssignee[]>([])
   const clearError = useCallback(() => setError(null), [])
 
   const fetchLogs = useCallback(async (droneId: string) => {
@@ -24,7 +26,7 @@ export const useMaintenance = () => {
       setLogs(data)
       return data
     } catch (err) {
-  const message = getFriendlyErrorMessage(err, 'Failed to fetch maintenance logs')
+      const message = getFriendlyErrorMessage(err, 'Failed to fetch maintenance logs')
       setError(message)
       console.error('Error fetching maintenance logs:', err)
       throw err
@@ -43,7 +45,7 @@ export const useMaintenance = () => {
       }
       return created
     } catch (err) {
-  const message = getFriendlyErrorMessage(err, 'Failed to create maintenance log')
+      const message = getFriendlyErrorMessage(err, 'Failed to create maintenance log')
       setError(message)
       console.error('Error creating maintenance log:', err)
       throw err
@@ -60,7 +62,7 @@ export const useMaintenance = () => {
       setLogs((prev) => prev.map((log) => (log.log_id === logId ? updated : log)))
       return updated
     } catch (err) {
-  const message = getFriendlyErrorMessage(err, 'Failed to update maintenance log')
+      const message = getFriendlyErrorMessage(err, 'Failed to update maintenance log')
       setError(message)
       console.error('Error updating maintenance log:', err)
       throw err
@@ -76,7 +78,7 @@ export const useMaintenance = () => {
       await maintenanceService.deleteLog(logId)
       setLogs((prev) => prev.filter((log) => log.log_id !== logId))
     } catch (err) {
-  const message = getFriendlyErrorMessage(err, 'Failed to delete maintenance log')
+      const message = getFriendlyErrorMessage(err, 'Failed to delete maintenance log')
       setError(message)
       console.error('Error deleting maintenance log:', err)
       throw err
@@ -85,15 +87,31 @@ export const useMaintenance = () => {
     }
   }, [])
 
+  const fetchAssignees = useCallback(async () => {
+    try {
+      setError(null)
+      const data = await maintenanceService.getAssignees()
+      setAssignees(data)
+      return data
+    } catch (err) {
+      const message = getFriendlyErrorMessage(err, 'Failed to load maintenance assignees')
+      setError((prev) => prev ?? message)
+      console.error('Error fetching maintenance assignees:', err)
+      throw err
+    }
+  }, [])
+
   return {
     logs,
     activeDroneId,
     loading,
     error,
+    assignees,
     clearError,
     fetchLogs,
     createLog,
     updateLog,
     deleteLog,
+    fetchAssignees,
   }
 }
