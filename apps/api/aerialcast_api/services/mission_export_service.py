@@ -16,6 +16,7 @@ matplotlib.use("Agg")  # noqa: E402
 import matplotlib.pyplot as plt
 from flask import current_app, render_template
 from weasyprint import HTML
+from zoneinfo import ZoneInfo
 
 from ..models.execution import FlightSession, TelemetryData
 from ..models.planning import (
@@ -184,7 +185,7 @@ class MissionExportService:
 
         return {
             "mission_name": mission.mission_name,
-            "generated_at": cls._format_datetime(datetime.utcnow()),
+            "generated_at": cls._format_datetime(datetime.now(timezone.utc)),
             "metadata": metadata,
             "timeline_rows": timeline_rows,
             "telemetry_cards": telemetry_cards,
@@ -499,9 +500,18 @@ class MissionExportService:
         if not value:
             return "—"
         try:
-            localized = value.astimezone()
+            jakarta = ZoneInfo("Asia/Jakarta")
+        except Exception:
+            return value.strftime("%Y-%m-%d %H:%M")
+
+        current_value = value
+        if current_value.tzinfo is None:
+            current_value = current_value.replace(tzinfo=timezone.utc)
+
+        try:
+            localized = current_value.astimezone(jakarta)
         except ValueError:
-            localized = value
+            localized = current_value
         return localized.strftime("%Y-%m-%d %H:%M")
 
     @staticmethod
