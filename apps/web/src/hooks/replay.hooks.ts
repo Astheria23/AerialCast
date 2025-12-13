@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getFriendlyErrorMessage } from '@/lib/errors';
+import { missionsService } from '@/services/missions.service';
 import { telemetryService } from '@/services/telemetry.service';
+import type { Mission, MissionGeofenceRef, MissionWaypoint } from '@/types/missions.types';
 import type { FlightSession, SessionStatus } from '@/types/sessions.types';
 import type {
   TelemetryEventItem,
@@ -68,6 +70,10 @@ export type UseMissionReplayResult = {
   events: TelemetryEventItem[];
   playback: ReplayPlaybackState;
   timeline?: { start: number; end: number; durationMs: number } | null;
+  mission?: Mission | null;
+  missionLoading: boolean;
+  missionWaypoints: MissionWaypoint[];
+  missionGeofences: MissionGeofenceRef[];
   loadSessions: (query?: MissionSessionQuery) => Promise<FlightSession[]>;
   loadReplay: (sessionId: string, params?: TelemetryReplayQuery) => Promise<TelemetryPoint[]>;
   selectSession: (
@@ -101,7 +107,10 @@ export const useMissionReplay = (options: MissionReplayOptions): UseMissionRepla
   const [cursorIndex, setCursorIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [mission, setMission] = useState<Mission | null>(null);
+  const [missionLoading, setMissionLoading] = useState(false);
   const playbackTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const missionRequestIdRef = useRef<string | null>(null);
 
   const clearPlaybackTimer = useCallback(() => {
     if (playbackTimerRef.current) {
@@ -295,6 +304,54 @@ export const useMissionReplay = (options: MissionReplayOptions): UseMissionRepla
     [loadReplay]
   );
 
+  const selectedSession = useMemo(
+    () => sessions.find((session) => session.session_id === selectedSessionId),
+    [selectedSessionId, sessions]
+  );
+
+  useEffect(() => {
+    const missionId = selectedSession?.mission_id ?? null;
+
+    if (!missionId) {
+      missionRequestIdRef.current = null;
+      setMission(null);
+      setMissionLoading(false);
+      return;
+    }
+
+    if (missionRequestIdRef.current === missionId && mission) {
+      return;
+    }
+
+    if (missionRequestIdRef.current !== missionId) {
+      setMission(null);
+    }
+
+    let active = true;
+    setMissionLoading(true);
+    missionsService
+      .getMissionById(missionId)
+      .then((data) => {
+        if (!active) return;
+        setMission(data);
+        missionRequestIdRef.current = data.mission_id;
+      })
+      .catch((err) => {
+        if (!active) return;
+        console.error('Failed to load mission context for replay', err);
+        setMission(null);
+        missionRequestIdRef.current = missionId;
+      })
+      .finally(() => {
+        if (!active) return;
+        setMissionLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [mission, selectedSession?.mission_id]);
+
   const consumedTrail = useMemo(() => replayPoints.slice(0, cursorIndex + 1), [cursorIndex, replayPoints]);
   const stats = useMemo(() => computeStats(consumedTrail), [consumedTrail]);
   const events = useMemo(() => deriveEvents(consumedTrail), [consumedTrail]);
@@ -327,11 +384,6 @@ export const useMissionReplay = (options: MissionReplayOptions): UseMissionRepla
     seekToTime,
   };
 
-  const selectedSession = useMemo(
-    () => sessions.find((session) => session.session_id === selectedSessionId),
-    [selectedSessionId, sessions]
-  );
-
   return {
     sessions,
     sessionsLoading,
@@ -346,6 +398,10 @@ export const useMissionReplay = (options: MissionReplayOptions): UseMissionRepla
     events,
     playback,
     timeline,
+    mission,
+    missionLoading,
+    missionWaypoints: mission?.waypoints ?? [],
+    missionGeofences: mission?.active_geofences ?? [],
     loadSessions,
     loadReplay,
     selectSession,

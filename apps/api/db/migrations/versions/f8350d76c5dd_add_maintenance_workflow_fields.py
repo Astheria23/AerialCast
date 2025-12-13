@@ -1,7 +1,7 @@
 """Add maintenance workflow fields
 
 Revision ID: f8350d76c5dd
-Revises: 1bb68d74c094
+Revises: 6b77f861bf90
 Create Date: 2025-12-13 14:20:00.000000
 
 """
@@ -11,7 +11,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "f8350d76c5dd"
-down_revision = "1bb68d74c094"
+down_revision = "6b77f861bf90"
 branch_labels = None
 depends_on = None
 

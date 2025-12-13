@@ -204,9 +204,34 @@ class FlightSessionSchema(Schema):
     mission_id = fields.UUID(dump_only=True)
     drone_id = fields.UUID(dump_only=True)
     pilot_id = fields.UUID(dump_only=True)
-    mission_name = fields.String(dump_only=True)
-    drone_name = fields.String(dump_only=True)
-    pilot_name = fields.String(dump_only=True)
+    mission_name = fields.Method("_dump_mission_name", dump_only=True)
+    drone_name = fields.Method("_dump_drone_name", dump_only=True)
+    pilot_name = fields.Method("_dump_pilot_name", dump_only=True)
+    drone_lora_id = fields.Method("_dump_drone_lora_id", dump_only=True)
+
+    def _dump_mission_name(self, obj):
+        mission = getattr(obj, "mission", None)
+        if mission and getattr(mission, "mission_name", None):
+            return mission.mission_name
+        return None
+
+    def _dump_drone_name(self, obj):
+        drone = getattr(obj, "drone", None)
+        if drone and getattr(drone, "name", None):
+            return drone.name
+        return None
+
+    def _dump_pilot_name(self, obj):
+        pilot = getattr(obj, "pilot", None)
+        if pilot and getattr(pilot, "full_name", None):
+            return pilot.full_name
+        return None
+
+    def _dump_drone_lora_id(self, obj):
+        drone = getattr(obj, "drone", None)
+        if drone and getattr(drone, "lora_id", None):
+            return drone.lora_id
+        return None
 
 
 class MaintenanceLogSchema(Schema):
@@ -216,11 +241,23 @@ class MaintenanceLogSchema(Schema):
     status = fields.String(dump_only=True)
     scheduled_for = fields.Date(dump_only=True)
     assigned_pilot_id = fields.UUID(dump_only=True, allow_none=True)
-    assigned_pilot_name = fields.String(dump_only=True, allow_none=True)
+    assigned_pilot_name = fields.Method("_dump_assigned_pilot_name", dump_only=True, allow_none=True)
     created_by_user_id = fields.UUID(dump_only=True, allow_none=True)
-    created_by_name = fields.String(dump_only=True, allow_none=True)
+    created_by_name = fields.Method("_dump_created_by_name", dump_only=True, allow_none=True)
     started_at = fields.DateTime(dump_only=True, allow_none=True)
     completed_at = fields.DateTime(dump_only=True, allow_none=True)
+
+    def _dump_assigned_pilot_name(self, obj):
+        pilot = getattr(obj, "assigned_pilot", None)
+        if pilot and getattr(pilot, "full_name", None):
+            return pilot.full_name
+        return None
+
+    def _dump_created_by_name(self, obj):
+        creator = getattr(obj, "created_by", None)
+        if creator and getattr(creator, "full_name", None):
+            return creator.full_name
+        return None
 
 
 class MaintenanceLogCreateSchema(Schema):

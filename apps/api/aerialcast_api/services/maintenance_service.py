@@ -2,6 +2,8 @@
 
 from datetime import date, datetime
 
+from sqlalchemy.orm import joinedload
+
 from ..extensions import db
 from ..models.enums import DroneStatus, MaintenanceStatus, UserRole
 from ..models.execution import MaintenanceLog
@@ -70,7 +72,11 @@ class MaintenanceService:
     @staticmethod
     def get_logs_by_drone(drone_id):
         return (
-            MaintenanceLog.query.filter_by(drone_id=drone_id)
+            MaintenanceLog.query.options(
+                joinedload(MaintenanceLog.assigned_pilot),
+                joinedload(MaintenanceLog.created_by),
+            )
+            .filter_by(drone_id=drone_id)
             .order_by(MaintenanceLog.scheduled_for.desc())
             .all()
         )

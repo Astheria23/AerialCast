@@ -64,10 +64,16 @@ export function MissionCard({
   const filteredActions = availableActions.filter((action) => (canPerformAction ? canPerformAction(action) : true))
   const resolvedDroneName = mission.drone_name ?? droneName ?? mission.drone_id
   const preflight = mission.preflight_checklist
+  const postflight = mission.postflight_checklist
   const preflightItems = preflight?.items ?? []
   const preflightCompleted = preflightItems.filter((item) => item.is_completed).length
   const preflightTotal = preflightItems.length
   const preflightPercent = preflightTotal > 0 ? Math.round((preflightCompleted / preflightTotal) * 100) : 0
+  const postflightItems = postflight?.items ?? []
+  const postflightCompleted = postflightItems.filter((item) => item.is_completed).length
+  const postflightTotal = postflightItems.length
+  const postflightPercent = postflightTotal > 0 ? Math.round((postflightCompleted / postflightTotal) * 100) : 0
+  const shouldShowPostflight = status === "COMPLETED" && postflight
 
   return (
     <Card className="overflow-hidden">
@@ -99,22 +105,45 @@ export function MissionCard({
           <MapPin className="h-4 w-4" />
           <span>{mission.waypoints?.length || 0} waypoint(s)</span>
         </div>
-        {preflight && (
-          <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs">
-            <div className="flex items-center justify-between font-semibold text-foreground">
-              <span>Preflight</span>
-              <span>{preflightCompleted} / {preflightTotal}</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
-              <span>{(preflight.status ?? 'NOT_STARTED').replace(/_/g, " ")}</span>
-              <span>{preflightPercent}%</span>
-            </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
-              <div
-                className="h-full rounded-full bg-primary"
-                style={{ width: `${preflightPercent}%` }}
-              />
-            </div>
+        {(preflight || shouldShowPostflight) && (
+          <div className="space-y-3">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Checklist</h4>
+            {preflight && (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between font-semibold text-foreground">
+                  <span className="sr-only">Preflight completion</span>
+                  <span>{preflightCompleted} / {preflightTotal}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <span>preflight</span>
+                  <span>{preflightPercent}%</span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${preflightPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
+            {shouldShowPostflight && (
+              <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 px-3 py-2 text-xs">
+                <div className="flex items-center justify-between font-semibold text-foreground">
+                  <span className="sr-only">Postflight completion</span>
+                  <span>{postflightCompleted} / {postflightTotal}</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <span>Postflight</span>
+                  <span>{postflightPercent}%</span>
+                </div>
+                <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+                  <div
+                    className="h-full rounded-full bg-primary"
+                    style={{ width: `${postflightPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
         <div className="flex flex-wrap gap-2">
