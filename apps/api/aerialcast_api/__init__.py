@@ -48,9 +48,13 @@ def create_app(env: str | None = None) -> Flask:
 		if origin not in deduped_origins:
 			deduped_origins.append(origin)
 
+	resource_config = {
+		r"/api/*": {"origins": deduped_origins},
+		r"/auth/*": {"origins": deduped_origins},
+	}
 	cors.init_app(
 		app,
-		resources={r"/api/*": {"origins": deduped_origins}},
+		resources=resource_config,
 		supports_credentials=True,
 	)
 
