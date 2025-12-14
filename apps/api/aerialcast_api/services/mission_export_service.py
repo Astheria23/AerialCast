@@ -66,7 +66,10 @@ class MissionExportService:
             limit=cls.MAX_ALERT_ROWS,
         )
         alert_context = cls._prepare_alert_context(alert_records)
-        alert_timeline_stream = cls._render_alert_timeline(alert_records)
+        alert_timeline_stream = cls._render_alert_timeline(
+            alert_context.get("timeline_events") or [],
+            alert_context.get("cause_order") or [],
+        )
 
         map_stream = (
             io.BytesIO(map_image_bytes)
@@ -299,6 +302,7 @@ class MissionExportService:
         }
 
         grouped: dict[str, dict[str, Any]] = {}
+        timeline_events: list[dict[str, Any]] = []
         for record in alerts_sorted:
             timestamp = cls._ensure_timezone(record.timestamp)
             alert_type = getattr(record.alert_type, "value", None) or str(
@@ -309,11 +313,23 @@ class MissionExportService:
                 alert_type, raw_message
             )
 
+            if timestamp:
+                timeline_events.append(
+                    {
+                        "timestamp": timestamp,
+                        "category": display_message,
+                        "type": alert_type,
+                        "detail": detail_message or raw_message or None,
+                    }
+                )
+
             entry = grouped.get(group_key)
             if entry is None:
                 entry = {
                     "type": alert_type,
                     "message": display_message,
+                    "category": display_message,
+                    "group_key": group_key,
                     "detail": detail_message,
                     "start": timestamp,
                     "end": timestamp,
@@ -335,6 +351,8 @@ class MissionExportService:
                     should_update_detail = True
                 if should_update_detail:
                     entry["message"] = display_message
+                    entry["category"] = display_message
+                    entry["group_key"] = group_key
                     entry["detail"] = detail_message
 
         groups = list(grouped.values())
@@ -360,12 +378,14 @@ class MissionExportService:
 
             detail_text = group.get("detail")
             display_text = group.get("message") or "—"
+            category_label = group.get("category") or display_text
             message_text = detail_text or display_text
 
             recent_groups.append(
                 {
                     "type": group["type"],
-                    "category": display_text,
+                    "category": category_label,
+                    "group_key": group.get("group_key"),
                     "message": message_text,
                     "detail": detail_text,
                     "count": group["count"],
@@ -377,6 +397,12 @@ class MissionExportService:
 
         display_groups = recent_groups[: cls.ALERT_DISPLAY_LIMIT]
         omitted = max(0, len(recent_groups) - len(display_groups))
+        cause_order = [group["category"] for group in display_groups]
+        timeline_events_filtered = [
+            event
+            for event in sorted(timeline_events, key=lambda entry: entry["timestamp"])
+            if event["category"] in cause_order
+        ]
 
         return {
             "summary": summary,
@@ -384,6 +410,8 @@ class MissionExportService:
             "recent_groups": display_groups,
             "omitted_groups": omitted,
             "total_events": total_events,
+            "timeline_events": timeline_events_filtered,
+            "cause_order": cause_order,
         }
 
     @staticmethod
@@ -431,55 +459,145 @@ class MissionExportService:
         return key, display, detail
 
     @classmethod
-    def _render_alert_timeline(cls, alerts: Sequence[Alert]) -> io.BytesIO | None:
-        if not alerts:
+    def _render_alert_timeline(
+        cls,
+        events: Sequence[dict[str, Any]],
+        cause_order: Sequence[str],
+    ) -> io.BytesIO | None:
+        if not events or not cause_order:
             return None
 
-        samples: list[tuple[datetime, str]] = []
-        for record in alerts:
-            timestamp = cls._ensure_timezone(record.timestamp)
-            if not timestamp:
-                continue
-            label = getattr(record.alert_type, "value", None) or str(record.alert_type)
-            samples.append((timestamp, label))
+        events_sorted = sorted(events, key=lambda entry: entry["timestamp"])
 
-        if not samples:
+        categories_in_use: list[str] = [
+            category
+            for category in cause_order
+            if any(event["category"] == category for event in events_sorted)
+        ]
+        if not categories_in_use:
             return None
 
-        samples.sort(key=lambda entry: entry[0])
-        type_order: list[str] = list(dict.fromkeys(label for _, label in samples))
-        positions = {label: idx for idx, label in enumerate(type_order)}
+        positions = {label: idx for idx, label in enumerate(categories_in_use)}
 
         plt.style.use("seaborn-v0_8")
-        figure_height = max(2.2, 1.4 + 0.5 * len(type_order))
-        fig, ax = plt.subplots(figsize=(5.6, figure_height), dpi=220)
+        # Increase figure height for more annotation space
+        figure_height = max(3.8, 2.2 + 1.1 * len(categories_in_use))
+        fig_width = 12.6
+        fig, ax = plt.subplots(figsize=(fig_width, figure_height), dpi=220)
         ax.set_facecolor("#f8fafc")
         ax.grid(True, axis="x", linestyle="--", linewidth=0.4, alpha=0.4)
         ax.set_axisbelow(True)
 
-        for label in type_order:
-            times = [timestamp for timestamp, tag in samples if tag == label]
-            if not times:
-                continue
-            y_value = positions[label]
-            ys = [y_value] * len(times)
-            color = cls._alert_color(label)
-            numeric_times = mdates.date2num(times)
-            ax.scatter(numeric_times, ys, color=color, s=28, alpha=0.9, marker="o")
+        category_counts: defaultdict[str, int] = defaultdict(int)
+        geofence_counts: defaultdict[str, int] = defaultdict(int)
 
-        ax.set_yticks([positions[label] for label in type_order])
+        for index, event in enumerate(events_sorted):
+            category = event.get("category")
+            timestamp = event.get("timestamp")
+            if category not in positions or not isinstance(timestamp, datetime):
+                continue
+            y_value = positions[category]
+            alert_type_value = str(event.get("type") or "")
+            color = cls._alert_color(alert_type_value)
+            numeric_time = float(mdates.date2num(timestamp))
+
+            ax.scatter(
+                [numeric_time],
+                [float(y_value)],
+                color=color,
+                s=26,
+                alpha=0.95,
+                marker="o",
+            )
+
+            annotation = cls._timeline_annotation_text(event.get("detail"))
+            time_label = timestamp.strftime("%H:%M:%S")
+            label_text = f"{time_label}\n{annotation}" if annotation else time_label
+
+            is_geofence = AlertType.GEOFENCE_BREACH.value.lower() in alert_type_value.lower() or (
+                isinstance(category, str) and "geofence" in category.lower()
+            )
+
+            # Apply tiered zigzag pattern to all events
+            if is_geofence:
+                event_index = geofence_counts[category]
+                geofence_counts[category] += 1
+            else:
+                event_index = category_counts[category]
+                category_counts[category] += 1
+
+            pair_index = event_index % 4
+            # base and higher/lower offsets
+            base_y = 15.0  # increased for more space
+            high_y = 40.0  # increased for more space
+            base_x = 18.0  # increased for more space
+            high_x = 38.0  # increased for more space
+            if pair_index == 0:
+                direction = 1  # up (base)
+                y_offset = base_y
+                x_offset = base_x
+            elif pair_index == 1:
+                direction = -1  # down (base)
+                y_offset = -base_y
+                x_offset = -base_x
+            elif pair_index == 2:
+                direction = 1  # up (higher)
+                y_offset = high_y
+                x_offset = high_x
+            else:
+                direction = -1  # down (lower)
+                y_offset = -high_y
+                x_offset = -high_x
+            vertical_alignment = "bottom" if direction > 0 else "top"
+
+            arrow_rad = 0.18 * direction
+            if is_geofence:
+                arrow_rad = 0.32 * direction
+            arrowprops = {
+                "arrowstyle": "-",
+                "color": "#94a3b8",
+                "lw": 0.30,
+                "shrinkA": 0,
+                "shrinkB": 2,
+                "connectionstyle": f"arc3,rad={arrow_rad}",
+            }
+
+            ax.annotate(
+                label_text,
+                (numeric_time, float(y_value)),
+                textcoords="offset points",
+                xytext=(x_offset, y_offset),
+                ha="center",
+                va=vertical_alignment,
+                fontsize=5,  # larger text
+                rotation=20,
+                color="#1e293b",
+                linespacing=1.0,
+                arrowprops=arrowprops,
+                bbox={
+                    "boxstyle": "round,pad=0.18",
+                    "facecolor": "#e2e8f0" if is_geofence else "#f8fafc",
+                    "edgecolor": "#cbd5f5",
+                    "linewidth": 0.3,
+                    "alpha": 0.92,
+                },
+            )
+
+        ax.set_yticks([positions[label] for label in categories_in_use])
         ax.set_yticklabels(
-            [cls._format_alert_label(label) for label in type_order], fontsize=9
+            [cls._trim_label(label) for label in categories_in_use], fontsize=7
         )
-        ax.set_ylim(-0.6, len(type_order) - 0.4)
+        ax.set_ylim(-0.6, len(categories_in_use) - 0.4)
         ax.tick_params(axis="y", which="both", length=0)
 
-        ax.set_xlabel("Time", fontsize=10)
-        ax.set_title("Alert Timeline", fontsize=12, color="#0f172a")
+        ax.set_xlabel("Time", fontsize=7)
+        ax.set_title("Alert Timeline", fontsize=10, color="#0f172a")
 
         ax.xaxis_date()
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S"))
-        fig.autofmt_xdate(rotation=30, ha="right")
+        ax.tick_params(axis="x", labelsize=5.5)
+        ax.margins(x=0.16)
+        fig.autofmt_xdate(rotation=20, ha="right")
 
         stream = io.BytesIO()
         fig.tight_layout()
@@ -487,6 +605,60 @@ class MissionExportService:
         plt.close(fig)
         stream.seek(0)
         return stream
+
+    @staticmethod
+    def _timeline_annotation_text(message: str | None) -> str | None:
+        if not message:
+            return None
+        text = message.strip()
+        if not text:
+            return None
+        replacements = [
+            "Signal degradation detected:",
+            "Signal degradation:",
+            "Geofence breach:",
+            "Entered restricted geofence",
+        ]
+        for token in replacements:
+            text = text.replace(token, "").strip(" -,:\n")
+
+        coord_match = re.search(r"(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)", text)
+        if coord_match:
+            lat, lon = coord_match.groups()
+            try:
+                lat_f = float(lat)
+                lon_f = float(lon)
+                return f"{lat_f:.4f}, {lon_f:.4f}"
+            except ValueError:
+                pass
+
+        signal_tokens: list[str] = []
+        for segment in re.split(r"[;,]", text):
+            cleaned = segment.strip()
+            if not cleaned:
+                continue
+            if cleaned.lower().startswith("rssi"):
+                signal_tokens.append(cleaned.replace("dBm", "").strip())
+            elif cleaned.lower().startswith("snr"):
+                signal_tokens.append(cleaned.replace("dB", "").strip())
+            elif cleaned.lower().startswith("battery"):
+                signal_tokens.append(cleaned)
+        if signal_tokens:
+            trimmed = [token[:18].rstrip() + "…" if len(token) > 19 else token for token in signal_tokens[:2]]
+            return "\n".join(trimmed)
+
+        if len(text) > 26:
+            text = text[:24].rstrip() + "…"
+        return text or None
+
+    @staticmethod
+    def _trim_label(label: str | None) -> str:
+        if not label:
+            return "Other"
+        text = label.strip()
+        if len(text) > 42:
+            return text[:39].rstrip() + "…"
+        return text
 
     @staticmethod
     def _alert_color(alert_type: str) -> str:
