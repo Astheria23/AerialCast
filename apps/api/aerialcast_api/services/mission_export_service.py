@@ -1325,7 +1325,7 @@ class MissionExportService:
         times, values = zip(*filtered)
 
         plt.style.use("seaborn-v0_8")
-        fig, ax = plt.subplots(figsize=(4.8, 3.0), dpi=220)
+        fig, ax = plt.subplots(figsize=(12.0, 3.0), dpi=220)
         ax.set_facecolor("#f8fafc")
         ax.grid(True, linestyle="--", linewidth=0.4, alpha=0.5)
 
