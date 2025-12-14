@@ -33,6 +33,11 @@ class BaseConfig:
     SUPABASE_URL: str | None = os.getenv("SUPABASE_URL")
     SUPABASE_KEY: str | None = os.getenv("SUPABASE_KEY")
     SUPABASE_STORAGE_BUCKET: str = os.getenv("SUPABASE_STORAGE_BUCKET", "drone-image")
+    CORS_ALLOWED_ORIGINS: tuple[str, ...] = tuple(
+        origin.strip()
+        for origin in os.getenv("CORS_ALLOWED_ORIGINS", "").split(",")
+        if origin.strip()
+    )
 
 
 @dataclass(frozen=True)

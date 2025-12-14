@@ -40,6 +40,16 @@ export interface TelemetryStatsSummary {
 
 export type TelemetryEventSeverity = 'info' | 'warning' | 'danger';
 
+export type AlertType = 'LOW_BATTERY' | 'GEOFENCE_BREACH' | 'SIGNAL_LOST' | 'MISSION_ERROR';
+
+export interface MissionAlert {
+  alert_id: string;
+  session_id?: string | null;
+  alert_type: AlertType;
+  message?: string | null;
+  timestamp: string;
+}
+
 export interface TelemetryEventItem {
   id: string;
   timestamp: string;
@@ -55,6 +65,7 @@ export interface TelemetryState {
   points: TelemetryPoint[];
   stats: TelemetryStatsSummary;
   events: TelemetryEventItem[];
+  alerts: TelemetryEventItem[];
   latestPoint?: TelemetryPoint;
   connectionState: TelemetryConnectionState;
   error?: string | null;

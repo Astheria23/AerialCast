@@ -1,5 +1,6 @@
 """Aggregate exports for repository classes."""
 
+from .alert_repository import AlertRepository
 from .base import Repository
 from .checklist_repository import ChecklistRepository
 from .drone_repository import DroneRepository
@@ -20,6 +21,7 @@ __all__ = [
 	"Repository",
 	"TelemetryRepository",
 	"UserRepository",
+	"AlertRepository",
 ]
 
 """Database repository abstractions placeholder."""

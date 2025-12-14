@@ -93,7 +93,7 @@
         }
 
         /* --- 5. SECTION HEADERS (BLACK & BOLD) --- */
-        .section { margin-bottom: 35px; page-break-inside: avoid; }
+    .section { margin-bottom: 35px; }
         .section-header { 
             font-size: 11px; 
             font-weight: 800; /* Extra Bold */
@@ -137,6 +137,21 @@
             font-size: 11px; font-style: italic; color: #334155; margin-top: 2px;
         }
 
+        /* --- 7b. DRONE PROFILE --- */
+        .profile-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+        .profile-item { border-left: 3px solid #000; padding-left: 10px; }
+        .profile-label { font-size: 9px; color: #64748b; text-transform: uppercase; margin-bottom: 3px; font-weight: 700; }
+        .profile-value { font-size: 11px; font-weight: 700; color: #000; }
+        .profile-subheader { margin-top: 18px; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #475569; }
+        .spec-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px; }
+        .spec-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); }
+        .spec-table tr:last-child td { border-bottom: none; }
+        .spec-label { width: 38%; font-weight: 600; color: #475569; text-transform: uppercase; font-size: 9px; }
+        .spec-value { color: #111827; font-size: 10px; }
+        .profile-notes { margin-top: 12px; border-left: 3px solid #000; padding-left: 10px; }
+        .profile-notes-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; font-weight: 700; }
+        .profile-notes-value { margin-top: 4px; font-size: 10px; color: #1f2937; }
+
         .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; background: transparent; border: 1px solid currentColor; }
         .badge-success { color: var(--color-success); }
         .badge-warning { color: var(--color-warning); }
@@ -158,8 +173,8 @@
         .wp-idx { font-weight: bold; color: var(--color-accent); margin-bottom: 2px; }
 
         /* --- 9. CHARTS & TABLES --- */
-        .visuals-grid { display: grid; gap: 15px; }
-        .visuals-grid.signal-grid { grid-template-columns: repeat(2, 1fr); } /* 2 Kolom */
+    .visuals-grid { display: grid; gap: 15px; }
+    .visuals-grid.signal-grid { grid-template-columns: 1fr; }
         .visual-card { border: 1px solid var(--color-border); padding: 6px; background: white; display: flex; flex-direction: column; }
         .visual-title { font-size: 9px; font-weight: 700; color: var(--color-secondary); text-transform: uppercase; margin-bottom: 6px; text-align: center;}
         .visual-card img { width: 100%; max-height: 160px; object-fit: contain; margin: auto; }
@@ -169,15 +184,90 @@
         .data-table td { border-bottom: 1px solid var(--color-border); padding: 6px 8px; vertical-align: middle; }
         .data-table tr:nth-child(even) { background-color: var(--color-bg-light); }
 
+        /* --- 9b. ALERT OVERVIEW --- */
+        .alert-section .section-header {
+            border-bottom-color: var(--color-border);
+            color: #111827;
+        }
+        .alert-summary-grid {
+            margin-top: 6px;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .alert-summary-card {
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            background: #ffffff;
+        }
+        .alert-summary-label {
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #64748b;
+            margin-bottom: 4px;
+            font-weight: 600;
+        }
+        .alert-summary-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .alert-summary-footnote {
+            margin-top: 4px;
+            font-size: 9px;
+            color: #64748b;
+        }
+        .alert-breakdown {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .alert-breakdown-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 10px;
+            border-radius: 9999px;
+            border: 1px solid var(--color-border);
+            background: #f8fafc;
+            font-size: 10px;
+            color: #1f2937;
+        }
+        .alert-subheader {
+            margin-top: 18px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #475569;
+        }
+        .alert-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-top: 8px; }
+    .alert-table th { text-align: left; padding: 6px 8px; color: #475569; font-weight: 700; border-bottom: 1px solid var(--color-border); text-transform: uppercase; letter-spacing: 0.05em; }
+        .alert-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); vertical-align: top; }
+        .alert-table tr:last-child td { border-bottom: none; }
+        .alert-table td.count-cell { text-align: center; font-weight: 700; }
+        .alert-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 6px; font-size: 9px; font-weight: 600; border: 1px solid #dc2626; border-radius: 9999px; color: #dc2626; background: #fef2f2; text-transform: uppercase; }
+        .alert-message { color: #1f2937; font-size: 10px; line-height: 1.4; }
+    .alert-message-meta { margin-top: 2px; font-size: 9px; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em; }
+        .alert-footnote { margin-top: 8px; font-size: 9px; color: #94a3b8; }
+    .alert-timeline-card { margin-top: 12px; border: 1px solid var(--color-border); border-radius: 6px; background: #ffffff; padding: 8px; }
+    .alert-timeline-card img { width: 100%; height: auto; display: block; }
+
         /* --- 10. CHECKLISTS (SPACING FIXED) --- */
-        .checklist-container { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        .checklist-box { border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden; }
-        .checklist-header { background: #f1f5f9; padding: 8px 10px; font-weight: 800; font-size: 10px; border-bottom: 1px solid var(--color-border); color: #000; }
-        .checklist-row { padding: 6px 10px; border-bottom: 1px dotted var(--color-border); display: flex; align-items: start; gap: 8px; }
-        .checklist-row:last-child { border-bottom: none; }
-        
-        .check-box { width: 12px; height: 12px; border: 1px solid var(--color-secondary); display: flex; align-items: center; justify-content: center; font-size: 10px; margin-top: 1px; }
-        .check-box.checked { border-color: var(--color-success); color: var(--color-success); font-weight: bold; }
+    .checklist-container { display: flex; flex-direction: column; gap: 25px; }
+    .checklist-box { border: 1px solid var(--color-border); border-radius: 4px; overflow: hidden; }
+    .checklist-header { background: #f1f5f9; padding: 8px 10px; font-weight: 800; font-size: 10px; border-bottom: 1px solid var(--color-border); color: #000; }
+    .checklist-table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    .checklist-table th { background: #f8fafc; text-transform: uppercase; letter-spacing: 0.06em; color: #475569; font-size: 9px; padding: 6px 8px; text-align: left; border-bottom: 1px solid var(--color-border); }
+    .checklist-table td { padding: 8px 8px; border-bottom: 1px dotted var(--color-border); vertical-align: top; }
+    .checklist-table tr:last-child td { border-bottom: none; }
+    .checklist-status { width: 16px; }
+    .check-box { width: 14px; height: 14px; border: 1px solid var(--color-secondary); display: flex; align-items: center; justify-content: center; font-size: 10px; margin-top: 2px; }
+    .check-box.checked { border-color: var(--color-success); color: var(--color-success); font-weight: bold; }
+    .checklist-note { font-size: 9px; color: #64748b; margin-top: 4px; white-space: pre-line; }
 
         /* --- 11. SIGNATURES --- */
         .signature-section { display: flex; justify-content: space-between; margin-top: 60px; page-break-inside: avoid; }
@@ -230,6 +320,39 @@
         </div>
     </section>
 
+    {% if drone_summary %}
+    <section class="section">
+        <div class="section-header">Drone Profile</div>
+        <div class="profile-grid">
+            {% for item in drone_summary %}
+            <div class="profile-item">
+                <div class="profile-label">{{ item.label }}</div>
+                <div class="profile-value">{{ item.value }}</div>
+            </div>
+            {% endfor %}
+        </div>
+        {% if drone_specs %}
+        <div class="profile-subheader">Hardware Specifications</div>
+        <table class="spec-table">
+            <tbody>
+                {% for spec in drone_specs %}
+                <tr>
+                    <td class="spec-label">{{ spec.label }}</td>
+                    <td class="spec-value">{{ spec.value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+        {% if drone_additional_notes %}
+        <div class="profile-notes">
+            <div class="profile-notes-label">Additional Notes</div>
+            <div class="profile-notes-value">{{ drone_additional_notes }}</div>
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
     <section class="section">
         <div class="section-header">Flight Statistics</div>
         <table class="stats-vertical-table">
@@ -269,33 +392,6 @@
             </tbody>
         </table>
     </section>
-
-    {% if alerts %}
-    <section class="section">
-        <div class="section-header" style="color: var(--color-danger); border-bottom-color: var(--color-danger);">
-            ⚠️ Critical Events Log
-        </div>
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th style="width: 20%; color: var(--color-danger); border-bottom-color: var(--color-danger);">Time</th>
-                    <th style="width: 20%; color: var(--color-danger); border-bottom-color: var(--color-danger);">Type</th>
-                    <th style="color: var(--color-danger); border-bottom-color: var(--color-danger);">Message</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for alert in alerts %}
-                <tr>
-                    <td class="mono">{{ alert.time }}</td>
-                    <td><span class="badge badge-danger">{{ alert.type }}</span></td>
-                    <td>{{ alert.message }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </section>
-    {% endif %}
-
     <section class="section">
         <div class="section-header">Spatial Analysis</div>
         <div class="split-layout">
@@ -341,6 +437,94 @@
     </section>
     {% endif %}
 
+    {% if alert_total_events %}
+    <section class="section alert-section">
+        <div class="section-header">Alert Overview</div>
+        <div class="alert-summary-grid">
+            <div class="alert-summary-card">
+                <div class="alert-summary-label">Total Alerts</div>
+                <div class="alert-summary-value">{{ alert_summary.total }}</div>
+            </div>
+            <div class="alert-summary-card">
+                <div class="alert-summary-label">Distinct Types</div>
+                <div class="alert-summary-value">{{ alert_summary.distinct_types }}</div>
+                {% if alert_summary.top_type %}
+                <div class="alert-summary-footnote">
+                    Most frequent: {{ alert_summary.top_type }}
+                    {% if alert_summary.top_share_display %}
+                    ({{ alert_summary.top_share_display }})
+                    {% endif %}
+                </div>
+                {% endif %}
+            </div>
+            <div class="alert-summary-card">
+                <div class="alert-summary-label">First Alert</div>
+                <div class="alert-summary-value">{{ alert_summary.first_display }}</div>
+            </div>
+            <div class="alert-summary-card">
+                <div class="alert-summary-label">Last Alert</div>
+                <div class="alert-summary-value">{{ alert_summary.last_display }}</div>
+                {% if alert_summary.duration_display and alert_summary.duration_display != '—' %}
+                <div class="alert-summary-footnote">Window {{ alert_summary.duration_display }}</div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if alert_breakdown %}
+        <div class="alert-breakdown">
+            {% for item in alert_breakdown %}
+            <div class="alert-breakdown-chip">
+                <span>{{ item.type }}</span>
+                <span>{{ item.count }} · {{ item.share_display }}</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if alert_recent_groups %}
+        <div class="alert-subheader">Recent Alert Groups</div>
+        <table class="alert-table">
+            <thead>
+                <tr>
+                    <th style="width: 30%">Time Window</th>
+                    <th style="width: 20%">Cause</th>
+                    <th style="width: 12%; text-align:center;">Count</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for group in alert_recent_groups %}
+                <tr>
+                    <td class="mono">{{ group.window_display }}</td>
+                    <td><span class="alert-pill">{{ group.category }}</span></td>
+                    <td class="count-cell">{{ group.count }}</td>
+                    <td class="alert-message">
+                        <div>{{ group.message }}</div>
+                        {% if group.detail %}
+                        <div class="alert-message-meta">{{ group.type }}</div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% endif %}
+
+        {% if alert_timeline_data_uri %}
+        <div class="alert-subheader">Alert Timeline</div>
+        <div class="alert-timeline-card">
+            <img src="{{ alert_timeline_data_uri }}" alt="Alert timeline chart">
+        </div>
+        {% endif %}
+
+        {% if alert_omitted_group_count > 0 %}
+        <div class="alert-footnote">
+            Additional {{ alert_omitted_group_count }} alert group{% if alert_omitted_group_count > 1 %}s{% endif %} not shown (see system logs for full history).
+        </div>
+        {% endif %}
+    </section>
+    {% endif %}
+
     <section class="section">
         <div class="section-header">Signal & Power Analysis</div>
         <div class="visuals-grid signal-grid">
@@ -365,38 +549,72 @@
             <div class="checklist-box">
                 <div class="checklist-header">PRE-FLIGHT CHECKS</div>
                 {% if preflight_groups %}
-                    {% for group in preflight_groups %}
-                        {% for item in group.entries %}
-                        <div class="checklist-row">
-                            <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
-                            <div>
-                                <div style="font-size:10px;">{{ item.text }}</div>
-                                {% if item.note %}<div style="font-size:9px; color:#94a3b8;">{{ item.note }}</div>{% endif %}
-                            </div>
-                        </div>
+                <table class="checklist-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">Done</th>
+                            <th>Item</th>
+                            <th style="width: 35%;">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in preflight_groups %}
+                            {% for item in group.entries %}
+                            <tr>
+                                <td class="checklist-status">
+                                    <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
+                                </td>
+                                <td>{{ item.text }}</td>
+                                <td>
+                                    {% if item.note %}
+                                    <div class="checklist-note">{{ item.note }}</div>
+                                    {% else %}
+                                    <span class="checklist-note" style="color:#cbd5e1;">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
+                    </tbody>
+                </table>
                 {% else %}
-                    <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
+                <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
                 {% endif %}
             </div>
 
             <div class="checklist-box">
                 <div class="checklist-header">POST-FLIGHT CHECKS</div>
                 {% if postflight_groups %}
-                    {% for group in postflight_groups %}
-                        {% for item in group.entries %}
-                        <div class="checklist-row">
-                            <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
-                            <div>
-                                <div style="font-size:10px;">{{ item.text }}</div>
-                                {% if item.note %}<div style="font-size:9px; color:#94a3b8;">{{ item.note }}</div>{% endif %}
-                            </div>
-                        </div>
+                <table class="checklist-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;">Done</th>
+                            <th>Item</th>
+                            <th style="width: 35%;">Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for group in postflight_groups %}
+                            {% for item in group.entries %}
+                            <tr>
+                                <td class="checklist-status">
+                                    <div class="check-box {% if item.is_completed %}checked{% endif %}">{% if item.is_completed %}✓{% endif %}</div>
+                                </td>
+                                <td>{{ item.text }}</td>
+                                <td>
+                                    {% if item.note %}
+                                    <div class="checklist-note">{{ item.note }}</div>
+                                    {% else %}
+                                    <span class="checklist-note" style="color:#cbd5e1;">—</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
                         {% endfor %}
-                    {% endfor %}
+                    </tbody>
+                </table>
                 {% else %}
-                    <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
+                <div style="padding:10px; font-size:10px; color:#94a3b8;">No data.</div>
                 {% endif %}
             </div>
         </div>
