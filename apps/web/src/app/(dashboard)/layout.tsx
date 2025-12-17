@@ -1,32 +1,32 @@
-"use client"
+"use client";
 
-import type React from "react"
-import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
-import Navbar from "@/components/layout/navbar"
-import Sidebar from "@/components/layout/sidebar"
-import { SidebarProvider } from "@/components/layout/sidebar-provider"
-import { authService } from "@/services/auth.service"
+import type React from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Navbar from "@/components/layout/navbar";
+import Sidebar from "@/components/layout/sidebar";
+import { SidebarProvider } from "@/components/layout/sidebar-provider";
+import { authService } from "@/services/auth.service";
 
 export default function DashboardLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
-  const router = useRouter()
-  const [isSessionReady, setIsSessionReady] = useState(false)
+  const router = useRouter();
+  const [isSessionReady, setIsSessionReady] = useState(false);
 
   useEffect(() => {
-    const user = authService.getUser()
+    const user = authService.getUser();
     if (!user) {
-      router.replace("/login")
-      return
+      router.replace("/auth");
+      return;
     }
-    queueMicrotask(() => setIsSessionReady(true))
-  }, [router])
+    queueMicrotask(() => setIsSessionReady(true));
+  }, [router]);
 
   if (!isSessionReady) {
-    return null
+    return null;
   }
 
   return (
@@ -40,5 +40,5 @@ export default function DashboardLayout({
         {children}
       </main>
     </SidebarProvider>
-  )
+  );
 }
