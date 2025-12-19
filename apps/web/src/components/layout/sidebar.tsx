@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -14,10 +14,12 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/services/auth.service";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/hooks/auth.hooks";
 
 interface SidebarProps {
   className?: string;
@@ -32,13 +34,30 @@ const pilotNavItems = [
   { href: "/geofences", label: "Geofences", icon: MapPin },
 ];
 
+const adminNavItems = [
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/missions", label: "Mission", icon: Zap },
+  { href: "/checklists", label: "Checklists", icon: ListChecks },
+  { href: "/maintenance", label: "Maintenance", icon: Wrench },
+  { href: "/drones", label: "Drone", icon: Plane },
+  { href: "/pilots", label: "Pilot", icon: Users },
+  { href: "/geofences", label: "Geofences", icon: MapPin },
+];
+
 export function Sidebar({ className }: SidebarProps) {
+  const { isAdmin } = useAuth();
+  const navItems = isAdmin ? adminNavItems : pilotNavItems;
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { resolvedTheme } = useTheme();
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  const isDark = mounted && resolvedTheme === "dark";
   const logoSrc = isCollapsed
     ? "images/aerialcast-icon.svg"
-    : resolvedTheme === "dark"
+    : isDark
     ? "images/aerialcast-logo-white.svg"
     : "images/aerialcast-logo.svg";
 
@@ -87,7 +106,7 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Top Menu */}
       <nav className="flex-1 space-y-1 px-3 overflow-x-hidden">
-        {pilotNavItems.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
 
