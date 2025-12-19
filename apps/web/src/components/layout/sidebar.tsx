@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { authService } from "@/services/auth.service";
+import { useTheme } from "next-themes";
 
 interface SidebarProps {
   className?: string;
@@ -34,6 +35,12 @@ const pilotNavItems = [
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const { resolvedTheme } = useTheme();
+  const logoSrc = isCollapsed
+    ? "images/aerialcast-icon.svg"
+    : resolvedTheme === "dark"
+    ? "images/aerialcast-logo-white.svg"
+    : "images/aerialcast-logo.svg";
 
   const handleLogout = () => {
     authService.logout();
@@ -68,11 +75,7 @@ export function Sidebar({ className }: SidebarProps) {
       >
         <div className="flex items-center gap-2 shrink-0 overflow-hidden">
           <img
-            src={
-              isCollapsed
-                ? "images/aerialcast-icon.svg"
-                : "images/aerialcast-logo.svg"
-            }
+            src={logoSrc}
             alt="Logo"
             className={cn(
               "transition-all duration-300",

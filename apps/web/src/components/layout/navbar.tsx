@@ -23,7 +23,7 @@ export default function Navbar({
     <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
       <div className="flex items-center gap-3">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={userAvatar || "/placeholder.svg"} alt={userName} />
+          <AvatarImage src={userAvatar} alt={userName} />
           <AvatarFallback className="bg-primary text-primary-foreground">
             {userName.charAt(0)}
           </AvatarFallback>
