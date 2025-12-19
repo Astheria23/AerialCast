@@ -4,8 +4,7 @@ import type React from "react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/navbar";
-import Sidebar from "@/components/layout/sidebar";
-import { SidebarProvider } from "@/components/layout/sidebar-provider";
+import { Sidebar } from "@/components/layout/sidebar";
 import { authService } from "@/services/auth.service";
 
 export default function DashboardLayout({
@@ -30,15 +29,17 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <Navbar />
+    <div className="flex min-h-screen bg-background">
       <Sidebar />
-      <main
-        className="mt-20 bg-background transition-all duration-300 ease-in-out"
-        style={{ marginLeft: "var(--sidebar-width)" }}
-      >
-        {children}
-      </main>
-    </SidebarProvider>
+      <div className="flex-1">
+        <Navbar />
+        <main
+          className="mt-20 bg-background transition-all duration-300 ease-in-out"
+          style={{ marginLeft: "var(--sidebar-width)" }}
+        >
+          {children}
+        </main>
+      </div>
+    </div>
   );
 }
