@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Navbar from "@/components/layout/navbar";
 import { Sidebar } from "@/components/layout/sidebar";
 import { authService } from "@/services/auth.service";
+import { ThemeProvider } from "@/providers/theme-provider";
 
 export default function DashboardLayout({
   children,
@@ -29,17 +30,24 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1">
-        <Navbar />
-        <main
-          className="bg-background transition-all duration-300 ease-in-out"
-          style={{ marginLeft: "var(--sidebar-width)" }}
-        >
-          {children}
-        </main>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="system"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1">
+          <Navbar />
+          <main
+            className="bg-background transition-all duration-300 ease-in-out"
+            style={{ marginLeft: "var(--sidebar-width)" }}
+          >
+            {children}
+          </main>
+        </div>
       </div>
-    </div>
+    </ThemeProvider>
   );
 }
