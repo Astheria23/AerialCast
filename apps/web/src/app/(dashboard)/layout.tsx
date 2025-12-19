@@ -34,7 +34,7 @@ export default function DashboardLayout({
       <div className="flex-1">
         <Navbar />
         <main
-          className="mt-20 bg-background transition-all duration-300 ease-in-out"
+          className="bg-background transition-all duration-300 ease-in-out"
           style={{ marginLeft: "var(--sidebar-width)" }}
         >
           {children}
