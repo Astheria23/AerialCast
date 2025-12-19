@@ -1,7 +1,5 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
 import { Search, Bell, Moon, Sun } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -49,7 +47,7 @@ export default function Navbar({
 
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
-          <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" />
+          {/* <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary" /> */}
         </Button>
 
         <Button
