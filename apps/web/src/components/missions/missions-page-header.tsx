@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 
 interface MissionsPageHeaderProps {
   canManage: boolean;
+  isAdmin: boolean;
   onCreateClick: () => void;
 }
 
 export function MissionsPageHeader({
   canManage,
+  isAdmin,
   onCreateClick,
 }: MissionsPageHeaderProps) {
   return (
@@ -26,18 +28,22 @@ export function MissionsPageHeader({
             </p>
           </div>
         </div>
-        {canManage && (
+        {(isAdmin || canManage) && (
           <div className="flex flex-wrap gap-2">
-            <Button asChild variant="outline" className="gap-2">
-              <Link href="/geofences">
-                <MapPin className="h-4 w-4" />
-                Manage geofences
-              </Link>
-            </Button>
-            <Button className="gap-2" onClick={onCreateClick}>
-              <Plus className="h-4 w-4" />
-              Add mission
-            </Button>
+            {isAdmin && (
+              <Button asChild variant="outline" className="gap-2">
+                <Link href="/geofences">
+                  <MapPin className="h-4 w-4" />
+                  Manage geofences
+                </Link>
+              </Button>
+            )}
+            {canManage && (
+              <Button className="gap-2" onClick={onCreateClick}>
+                <Plus className="h-4 w-4" />
+                Add mission
+              </Button>
+            )}
           </div>
         )}
       </div>

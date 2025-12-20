@@ -228,6 +228,7 @@ export default function MissionsPage() {
     <div className="flex flex-col gap-6 p-6">
       <MissionsPageHeader
         canManage={canManage}
+        isAdmin={isAdmin}
         onCreateClick={openCreateForm}
       />
 
@@ -257,7 +258,9 @@ export default function MissionsPage() {
         }}
       />
 
-      {hasMissions && <MissionStatsCard statusCounts={statusCounts} />}
+      {hasMissions && isAdmin && (
+        <MissionStatsCard statusCounts={statusCounts} />
+      )}
 
       {hasMissions && (
         <MissionFilters

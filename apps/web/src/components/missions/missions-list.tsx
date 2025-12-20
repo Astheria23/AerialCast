@@ -29,6 +29,7 @@ export function MissionsList({
   missions,
   filteredMissions,
   visibleMissions,
+  permissionContext,
   droneLookup,
   canManage,
   canTriggerStatusAction,
@@ -92,6 +93,7 @@ export function MissionsList({
           key={mission.mission_id}
           mission={mission}
           droneName={droneLookup[mission.drone_id]}
+          isAdmin={permissionContext.isAdmin}
           onEdit={canManage ? onEdit : undefined}
           onDelete={canManage ? onDelete : undefined}
           onStatusAction={canTriggerStatusAction ? onStatusAction : undefined}

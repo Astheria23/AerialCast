@@ -25,6 +25,7 @@ import {
 } from "@/lib/missions/mission.constants";
 
 interface MissionCardProps {
+  isAdmin: boolean;
   mission: Mission;
   droneName?: string;
   onEdit?: (mission: Mission) => void;
@@ -35,11 +36,10 @@ interface MissionCardProps {
   isStatusUpdating?: boolean;
 }
 
-const statusClasses = STATUS_COLORS;
-
 export function MissionCard({
   mission,
   droneName,
+  isAdmin,
   onEdit,
   onDelete,
   onStatusAction,
@@ -189,7 +189,7 @@ export function MissionCard({
               ))}
             </div>
           )}
-          {onEdit && (
+          {onEdit && isAdmin && (
             <Button
               type="button"
               variant="outline"
@@ -202,7 +202,7 @@ export function MissionCard({
               Edit
             </Button>
           )}
-          {onDelete && (
+          {onDelete && isAdmin && (
             <Button
               type="button"
               variant="destructive"
