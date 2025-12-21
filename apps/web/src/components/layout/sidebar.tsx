@@ -56,10 +56,10 @@ export function Sidebar({ className }: SidebarProps) {
 
   const isDark = mounted && resolvedTheme === "dark";
   const logoSrc = isCollapsed
-    ? "images/aerialcast-icon.svg"
+    ? "/images/aerialcast-icon.svg"
     : isDark
-    ? "images/aerialcast-logo-white.svg"
-    : "images/aerialcast-logo.svg";
+    ? "/images/aerialcast-logo-white.svg"
+    : "/images/aerialcast-logo.svg";
 
   const handleLogout = () => {
     authService.logout();
@@ -139,7 +139,7 @@ export function Sidebar({ className }: SidebarProps) {
         })}
       </nav>
 
-      {/* Botom Menu */}
+      {/* Bottom Menu */}
       <div className="space-y-1 px-3 pb-4">
         <Link
           href="/settings"

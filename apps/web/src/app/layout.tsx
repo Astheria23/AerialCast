@@ -16,6 +16,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AerialCast",
+  description:
+    "AerialCast is a platform for discovering, managing, and sharing aerial footage and drone content.",
   icons: {
     icon: "images/aerialcast-icon.svg",
   },

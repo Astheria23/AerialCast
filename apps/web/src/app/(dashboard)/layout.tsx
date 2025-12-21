@@ -40,10 +40,7 @@ export default function DashboardLayout({
         <Sidebar />
         <div className="flex-1">
           <Navbar />
-          <main
-            className="bg-background transition-all duration-300 ease-in-out"
-            style={{ marginLeft: "var(--sidebar-width)" }}
-          >
+          <main className="bg-background transition-all duration-300 ease-in-out">
             {children}
           </main>
         </div>
