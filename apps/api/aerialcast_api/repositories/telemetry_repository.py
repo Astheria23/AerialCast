@@ -10,7 +10,7 @@ from sqlalchemy import select
 from ..models.execution import TelemetryData
 from .base import Repository
 
-
+    
 class TelemetryRepository(Repository[TelemetryData]):
     model = TelemetryData
 

@@ -6,7 +6,7 @@ from flask_jwt_extended import jwt_required
 
 from ...schemas import DroneSchema
 from ...services.fleet_service import FleetService
-from ..utils import abort_with_payload
+from ..utils import abort_with_payload, ext_api_or_jwt_required
 
 
 blp = Blueprint(
@@ -20,6 +20,7 @@ blp = Blueprint(
 @blp.route("/", strict_slashes=False)
 class DroneList(MethodView):
 	@blp.response(200, DroneSchema(many=True))
+	@ext_api_or_jwt_required()
 	def get(self):
 		return FleetService.get_all_drones()
 
@@ -41,7 +42,7 @@ class DroneDetail(MethodView):
 		return FleetService.get_drone_by_id(drone_id)
 
 	@blp.doc(security=[{"BearerAuth": []}])
-	@jwt_required()
+	@ext_api_or_jwt_required()
 	@blp.arguments(DroneSchema(partial=True))
 	@blp.response(200, DroneSchema)
 	def put(self, drone_data, drone_id):
