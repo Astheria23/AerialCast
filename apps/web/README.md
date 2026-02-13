@@ -71,3 +71,21 @@ pnpm lint
 ## Deployment
 
 Use `pnpm build` to produce an optimized output before deploying via your preferred platform (Vercel, Azure Static Web Apps, etc.). Ensure the backend base URL reflects the deployed API.
+
+### Docker
+
+Build the production image from the repo root:
+
+```bash
+docker build -t aerialcast-web ./apps/web
+```
+
+Run it while pointing to your API base URL:
+
+```bash
+docker run --rm -p 3000:3000 \
+  -e NEXT_PUBLIC_API_URL="https://api.example.com" \
+  aerialcast-web
+```
+
+The container exposes port 3000 and serves the prebuilt Next.js app via `next start`.

@@ -12,7 +12,7 @@ interface NavbarProps {
 }
 
 export default function Navbar({
-  userName = "Username",
+  userName = "Admin",
   userAvatar,
 }: NavbarProps) {
   const { theme, setTheme } = useTheme();
