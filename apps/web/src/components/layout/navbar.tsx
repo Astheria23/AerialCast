@@ -5,29 +5,26 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useTheme } from "next-themes";
+import { useAuth } from "@/hooks/auth.hooks";
 
-interface NavbarProps {
-  userName?: string;
-  userAvatar?: string;
-}
-
-export default function Navbar({
-  userName = "Admin",
-  userAvatar,
-}: NavbarProps) {
+export default function Navbar() {
   const { theme, setTheme } = useTheme();
+  const { user } = useAuth();
+  const displayName = user?.full_name ?? "User";
+  const avatarInitial = displayName.charAt(0).toUpperCase();
+  const avatarSrc = user?.avatar_url ?? undefined;
 
   return (
     <div className="flex items-center justify-between border-b border-border bg-card px-6 py-4">
       <div className="flex items-center gap-3">
         <Avatar className="h-10 w-10">
-          <AvatarImage src={userAvatar} alt={userName} />
+          <AvatarImage src={avatarSrc} alt={displayName} />
           <AvatarFallback className="bg-primary text-primary-foreground">
-            {userName.charAt(0)}
+            {avatarInitial}
           </AvatarFallback>
         </Avatar>
         <span className="text-base font-medium">
-          Hello, <span className="text-foreground">{userName}!</span>
+          Hello, <span className="text-foreground">{displayName}!</span>
         </span>
       </div>
 

@@ -40,7 +40,6 @@ const adminNavItems = [
   { href: "/checklists", label: "Checklists", icon: ListChecks },
   { href: "/maintenance", label: "Maintenance", icon: Wrench },
   { href: "/drones", label: "Drone", icon: Plane },
-  { href: "/pilots", label: "Pilot", icon: Users },
   { href: "/geofences", label: "Geofences", icon: MapPin },
 ];
 
@@ -141,17 +140,6 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Bottom Menu */}
       <div className="space-y-1 px-3 pb-4">
-        <Link
-          href="/settings"
-          className={cn(
-            "flex items-center gap-3 rounded-lg py-2.5 text-sm font-medium text-muted-foreground hover:bg-secondary transition-all",
-            isCollapsed ? "justify-center px-0" : "px-3"
-          )}
-        >
-          <Settings className="h-5 w-5 shrink-0" />
-          {!isCollapsed && <span className="transition-all">Settings</span>}
-        </Link>
-
         <button
           onClick={handleLogout}
           className={cn(
