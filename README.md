@@ -1,3 +1,5 @@
+
+
 # AerialCast
 
 **AerialCast** is a fullstack IoT platform designed for real-time, long-range UAV (drone) telemetry monitoring using LoRa communication.
@@ -39,7 +41,7 @@ This repository uses a **monorepo** structure, separating each application into 
 ├── apps/
 │   ├── api/          # Backend (Python Flask + MQTT Listener)
 │   ├── gcs/          # GCS Firmware (ESP32 / PlatformIO)
-  └── web/          # Frontend Dashboard (Next.js)
+│   └── web/          # Frontend Dashboard (Next.js)
 ---
 
 ## 🛠️ Development Checkpoint — December 2025
